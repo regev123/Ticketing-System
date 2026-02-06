@@ -1,0 +1,13 @@
+spring:
+  config:
+    import: optional:classpath:application-common.yml
+  application:
+    name: catalog-service
+  data:
+    mongodb:
+      host: ${MONGODB_HOST:localhost}
+      port: ${MONGODB_PORT:27017}
+      database: ticketing_catalog
+
+server:
+  port: 8081

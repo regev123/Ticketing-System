@@ -1,0 +1,7 @@
+# Shared configuration - import in services: spring.config.import: optional:classpath:application-common.yml
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true

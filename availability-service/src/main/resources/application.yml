@@ -1,0 +1,18 @@
+spring:
+  config:
+    import: optional:classpath:application-common.yml
+  application:
+    name: availability-service
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cache:
+    type: redis
+
+catalog:
+  service:
+    url: ${CATALOG_SERVICE_URL:http://localhost:8081}
+
+server:
+  port: 8082
