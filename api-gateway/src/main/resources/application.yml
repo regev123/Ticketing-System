@@ -1,0 +1,28 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: catalog
+          uri: ${CATALOG_SERVICE_URL:http://localhost:8081}
+          predicates:
+            - Path=/api/shows,/api/shows/**
+
+        - id: availability
+          uri: ${AVAILABILITY_SERVICE_URL:http://localhost:8082}
+          predicates:
+            - Path=/api/availability,/api/availability/**
+
+        - id: reservation
+          uri: ${RESERVATION_SERVICE_URL:http://localhost:8083}
+          predicates:
+            - Path=/api/reservations,/api/reservations/**
+
+        - id: order
+          uri: ${ORDER_SERVICE_URL:http://localhost:8084}
+          predicates:
+            - Path=/api/orders,/api/orders/**

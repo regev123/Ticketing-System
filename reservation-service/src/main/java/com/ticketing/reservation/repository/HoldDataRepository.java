@@ -7,54 +7,45 @@ import java.util.Set;
 
 /**
  * Repository for hold data and seat locks in Redis.
- * Abstracts storage, retrieval, and lock management.
  */
 public interface HoldDataRepository {
 
     /**
-     * Acquires seat locks with SET NX PX. Returns locked seat IDs.
-     *
-     * @throws ConflictException if any seat is already held
+     * Acquires all seats with SET NX EX 420 (value = userId). All-or-nothing on conflict.
      */
-    Set<String> acquireSeatLocks(String showId, Set<String> seatIds, String holdId);
+    Set<String> acquireSeatLocks(String showId, Set<String> seatIds, String userId) throws ConflictException;
 
     /**
-     * Saves hold data with TTL. Locks must be acquired first.
+     * Per-seat SET NX; idempotent if this user already holds the seat.
      */
+    SeatBatchResult tryAcquireSeatsPartial(String showId, Set<String> seatIds, String userId);
+
     void save(HoldData holdData);
 
-    /**
-     * Saves hold metadata (showId, seatIds) with longer TTL for expiry event.
-     */
     void saveHoldMeta(String holdId, String showId, Set<String> seatIds);
 
-    /**
-     * Finds hold by ID. Returns null if not found or expired.
-     */
     HoldData findById(String holdId);
 
-    /**
-     * Retrieves hold metadata for expiry event. Returns null if not found.
-     */
     HoldMeta findHoldMeta(String holdId);
 
-    /**
-     * Deletes hold, metadata, and seat locks.
-     */
     void delete(String holdId, String showId, Set<String> seatIds);
 
-    /**
-     * Deletes seat locks only (for rollback on conflict).
-     */
     void deleteSeatLocks(String showId, Set<String> seatIds);
 
-    /**
-     * Deletes hold metadata.
-     */
     void deleteHoldMeta(String holdId);
 
-    /**
-     * Hold metadata for expiry event.
-     */
-    record HoldMeta(String holdId, String showId, Set<String> seatIds) {}
+    Set<String> findLockedSeatIdsForShow(String showId);
+
+    /** Deletes seat key only if value matches userId. */
+    Set<String> releaseSeatsIfOwned(String showId, Set<String> seatIds, String userId);
+
+    /** Refreshes TTL to 420s for seats owned by user. */
+    int extendSeatsTtlIfOwned(String showId, Set<String> seatIds, String userId);
+
+    /** Canonical holdId for (show, user), or null. */
+    String getActiveHoldId(String showId, String userId);
+
+    void setActiveHoldId(String showId, String userId, String holdId);
+
+    void deleteActiveHoldId(String showId, String userId);
 }

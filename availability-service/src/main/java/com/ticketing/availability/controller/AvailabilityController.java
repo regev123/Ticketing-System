@@ -13,9 +13,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -42,5 +45,13 @@ public class AvailabilityController {
             @Parameter(description = "Show ID", required = true, example = "507f1f77bcf86cd799439011")
             @PathVariable("showId") String showId) {
         return availabilityService.getShowAvailability(showId);
+    }
+
+    @PostMapping(ApiPaths.EVICT_CACHE)
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Evict cached availability for a show", description = "Call after holds or orders change so clients see updated seats.")
+    public void evictAvailabilityCache(
+            @Parameter(description = "Show ID", required = true) @PathVariable("showId") String showId) {
+        availabilityService.evictAvailabilityCache(showId);
     }
 }

@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ticketing-ingress
+  namespace: ticketing
+spec:
+  ingressClassName: nginx
+  rules:
+    # Configure host for your environment (e.g. ticketing.local, or remove for default)
+    - host: ticketing.local
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080

@@ -6,17 +6,21 @@ import com.ticketing.common.exception.ConflictException;
 import com.ticketing.reservation.constant.RedisKeys;
 import com.ticketing.reservation.entity.HoldData;
 import com.ticketing.reservation.repository.HoldDataRepository;
+import com.ticketing.reservation.repository.HoldMeta;
+import com.ticketing.reservation.repository.SeatBatchResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.time.Duration;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 /**
- * Redis-backed implementation of HoldDataRepository.
+ * Redis: seat:{showId}:{seatId} -> userId, TTL 420s.
  */
 @Repository
 @RequiredArgsConstructor
@@ -26,37 +30,65 @@ public class RedisHoldDataRepository implements HoldDataRepository {
     private final ObjectMapper objectMapper;
 
     @Override
-    public Set<String> acquireSeatLocks(String showId, Set<String> seatIds, String holdId) {
-        Set<String> lockedSeats = new HashSet<>();
+    public Set<String> acquireSeatLocks(String showId, Set<String> seatIds, String userId) {
+        Set<String> newlyCreated = new LinkedHashSet<>();
         try {
             for (String seatId : seatIds) {
-                String key = RedisKeys.seatLockKey(showId, seatId);
-                Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, holdId,
-                        java.time.Duration.ofMillis(RedisKeys.HOLD_TTL_MS));
-                if (Boolean.FALSE.equals(acquired)) {
-                    throw new ConflictException("Seat already held: " + seatId);
+                String key = RedisKeys.userSeatKey(showId, seatId);
+                Boolean ok = redisTemplate.opsForValue().setIfAbsent(key, userId,
+                        Duration.ofSeconds(RedisKeys.SEAT_HOLD_TTL_SECONDS));
+                if (Boolean.TRUE.equals(ok)) {
+                    newlyCreated.add(seatId);
+                } else {
+                    String v = redisTemplate.opsForValue().get(key);
+                    if (!userId.equals(v)) {
+                        throw new ConflictException("Seat already held: " + seatId);
+                    }
                 }
-                lockedSeats.add(seatId);
             }
-            return lockedSeats;
+            return seatIds;
         } catch (ConflictException e) {
-            deleteSeatLocks(showId, lockedSeats);
+            for (String seatId : newlyCreated) {
+                redisTemplate.delete(RedisKeys.userSeatKey(showId, seatId));
+            }
             throw e;
         }
+    }
+
+    @Override
+    public SeatBatchResult tryAcquireSeatsPartial(String showId, Set<String> seatIds, String userId) {
+        Set<String> success = new LinkedHashSet<>();
+        Set<String> failed = new LinkedHashSet<>();
+        for (String seatId : seatIds) {
+            String key = RedisKeys.userSeatKey(showId, seatId);
+            Boolean ok = redisTemplate.opsForValue().setIfAbsent(key, userId,
+                    Duration.ofSeconds(RedisKeys.SEAT_HOLD_TTL_SECONDS));
+            if (Boolean.TRUE.equals(ok)) {
+                success.add(seatId);
+            } else {
+                String v = redisTemplate.opsForValue().get(key);
+                if (userId.equals(v)) {
+                    success.add(seatId);
+                } else {
+                    failed.add(seatId);
+                }
+            }
+        }
+        return new SeatBatchResult(success, failed);
     }
 
     @Override
     public void save(HoldData holdData) {
         String holdKey = RedisKeys.holdKey(holdData.getHoldId());
         redisTemplate.opsForValue().set(holdKey, toJson(holdData),
-                java.time.Duration.ofMillis(RedisKeys.HOLD_TTL_MS));
+                Duration.ofMillis(RedisKeys.HOLD_TTL_MS));
     }
 
     @Override
     public void saveHoldMeta(String holdId, String showId, Set<String> seatIds) {
         String metaKey = RedisKeys.holdMetaKey(holdId);
         redisTemplate.opsForValue().set(metaKey, toHoldMetaJson(showId, seatIds),
-                java.time.Duration.ofMillis(RedisKeys.HOLD_META_TTL_MS));
+                Duration.ofMillis(RedisKeys.HOLD_META_TTL_MS));
     }
 
     @Override
@@ -96,13 +128,77 @@ public class RedisHoldDataRepository implements HoldDataRepository {
     @Override
     public void deleteSeatLocks(String showId, Set<String> seatIds) {
         for (String seatId : seatIds) {
-            redisTemplate.delete(RedisKeys.seatLockKey(showId, seatId));
+            redisTemplate.delete(RedisKeys.userSeatKey(showId, seatId));
         }
     }
 
     @Override
     public void deleteHoldMeta(String holdId) {
         redisTemplate.delete(RedisKeys.holdMetaKey(holdId));
+    }
+
+    @Override
+    public Set<String> findLockedSeatIdsForShow(String showId) {
+        String pattern = RedisKeys.SEAT_KEY_PREFIX + showId + RedisKeys.KEY_DELIMITER + "*";
+        Set<String> redisKeys = redisTemplate.keys(pattern);
+        if (redisKeys == null || redisKeys.isEmpty()) {
+            return Set.of();
+        }
+        String prefix = RedisKeys.SEAT_KEY_PREFIX + showId + RedisKeys.KEY_DELIMITER;
+        Set<String> seatIds = new HashSet<>();
+        for (String key : redisKeys) {
+            if (key.startsWith(prefix)) {
+                seatIds.add(key.substring(prefix.length()));
+            }
+        }
+        return seatIds;
+    }
+
+    @Override
+    public Set<String> releaseSeatsIfOwned(String showId, Set<String> seatIds, String userId) {
+        Set<String> released = new LinkedHashSet<>();
+        for (String seatId : seatIds) {
+            String key = RedisKeys.userSeatKey(showId, seatId);
+            String v = redisTemplate.opsForValue().get(key);
+            if (userId.equals(v)) {
+                redisTemplate.delete(key);
+                released.add(seatId);
+            }
+        }
+        return released;
+    }
+
+    @Override
+    public int extendSeatsTtlIfOwned(String showId, Set<String> seatIds, String userId) {
+        int n = 0;
+        Duration ttl = Duration.ofSeconds(RedisKeys.SEAT_HOLD_TTL_SECONDS);
+        for (String seatId : seatIds) {
+            String key = RedisKeys.userSeatKey(showId, seatId);
+            String v = redisTemplate.opsForValue().get(key);
+            if (userId.equals(v)) {
+                redisTemplate.expire(key, ttl);
+                n++;
+            }
+        }
+        return n;
+    }
+
+    @Override
+    public String getActiveHoldId(String showId, String userId) {
+        return redisTemplate.opsForValue().get(RedisKeys.userActiveHoldKey(showId, userId));
+    }
+
+    @Override
+    public void setActiveHoldId(String showId, String userId, String holdId) {
+        redisTemplate.opsForValue().set(
+                RedisKeys.userActiveHoldKey(showId, userId),
+                holdId,
+                Duration.ofMillis(RedisKeys.HOLD_META_TTL_MS));
+    }
+
+    @Override
+    public void deleteActiveHoldId(String showId, String userId) {
+        redisTemplate.delete(RedisKeys.userActiveHoldKey(showId, userId));
     }
 
     private String toJson(HoldData data) {

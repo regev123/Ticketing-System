@@ -1,0 +1,136 @@
+/**
+ * StagePass theme for react-datepicker (calendar + time list).
+ * Loaded after the library default CSS.
+ */
+
+/*
+ * Library sets .react-datepicker-wrapper { display: inline-block; } so it only grows to content
+ * width and ignores grid/flex columns — breaks 50/50 layouts next to other inputs.
+ */
+.ticketing-datetime-field .react-datepicker-wrapper {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.ticketing-datepicker-popper .react-datepicker {
+  font-family: 'DM Sans', 'Outfit', system-ui, sans-serif;
+  border: 1px solid rgb(226 232 240 / 0.95);
+  border-radius: 1rem;
+  box-shadow:
+    0 4px 6px -1px rgb(15 23 42 / 0.06),
+    0 20px 40px -12px rgb(91 33 182 / 0.18);
+  overflow: hidden;
+}
+
+.ticketing-datepicker-popper .react-datepicker__header {
+  background: linear-gradient(135deg, rgb(245 243 255) 0%, rgb(250 245 255) 50%, rgb(253 244 255) 100%);
+  border-bottom: 1px solid rgb(237 233 254);
+  border-radius: 0;
+  padding-top: 0.75rem;
+}
+
+.ticketing-datepicker-popper .react-datepicker__current-month,
+.ticketing-datepicker-popper .react-datepicker-time__header {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgb(15 23 42);
+}
+
+.ticketing-datepicker-popper .react-datepicker__day-name {
+  color: rgb(100 116 139);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ticketing-datepicker-popper .react-datepicker__day {
+  border-radius: 0.5rem;
+  color: rgb(51 65 85);
+  line-height: 2rem;
+}
+
+.ticketing-datepicker-popper .react-datepicker__day:hover {
+  background: rgb(237 233 254);
+  color: rgb(91 33 182);
+}
+
+.ticketing-datepicker-popper .react-datepicker__day--selected,
+.ticketing-datepicker-popper .react-datepicker__day--keyboard-selected {
+  background: linear-gradient(135deg, rgb(124 58 237) 0%, rgb(192 38 211) 100%) !important;
+  color: white !important;
+  font-weight: 600;
+}
+
+.ticketing-datepicker-popper .react-datepicker__day--selected:hover {
+  background: rgb(109 40 217) !important;
+}
+
+.ticketing-datepicker-popper .react-datepicker__day--outside-month {
+  color: rgb(203 213 225);
+}
+
+.ticketing-datepicker-popper .react-datepicker__day--disabled {
+  color: rgb(203 213 225);
+}
+
+.ticketing-datepicker-popper .react-datepicker__navigation {
+  top: 0.85rem;
+}
+
+.ticketing-datepicker-popper .react-datepicker__navigation-icon::before {
+  border-color: rgb(91 33 182);
+}
+
+.ticketing-datepicker-popper .react-datepicker__navigation:hover *::before {
+  border-color: rgb(124 58 237);
+}
+
+/* Time panel */
+.ticketing-datepicker-popper .react-datepicker__time-container {
+  border-left: 1px solid rgb(241 245 249);
+  width: 7rem;
+}
+
+.ticketing-datepicker-popper .react-datepicker__time-container .react-datepicker__time {
+  background: rgb(255 255 255);
+}
+
+.ticketing-datepicker-popper .react-datepicker__time-container .react-datepicker__time-box {
+  width: 100%;
+}
+
+.ticketing-datepicker-popper .react-datepicker__time-list-item {
+  height: 2rem !important;
+  padding: 0.25rem 0.5rem !important;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: rgb(51 65 85);
+}
+
+.ticketing-datepicker-popper .react-datepicker__time-list-item:hover {
+  background: rgb(237 233 254) !important;
+  color: rgb(91 33 182);
+}
+
+.ticketing-datepicker-popper .react-datepicker__time-list-item--selected {
+  background: rgb(237 233 254) !important;
+  color: rgb(91 33 182) !important;
+  font-weight: 600;
+}
+
+.ticketing-datepicker-popper .react-datepicker__day--today {
+  font-weight: 700;
+  color: rgb(124 58 237);
+}
+
+.ticketing-datepicker-popper .react-datepicker__triangle {
+  display: none;
+}
+
+.ticketing-datepicker-popper {
+  z-index: 100 !important;
+}

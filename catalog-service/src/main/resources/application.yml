@@ -8,6 +8,10 @@ spring:
       host: ${MONGODB_HOST:localhost}
       port: ${MONGODB_PORT:27017}
       database: ticketing_catalog
+  codec:
+    max-in-memory-size: 10MB
 
 server:
   port: 8081
+  tomcat:
+    max-http-form-post-size: 10MB

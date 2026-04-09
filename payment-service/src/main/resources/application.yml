@@ -1,0 +1,15 @@
+spring:
+  config:
+    import: optional:classpath:application-common.yml
+  application:
+    name: payment-service
+  kafka:
+    consumer:
+      group-id: payment-service
+
+# Mock payment: success rate 0.0-1.0 (1.0 = always succeed)
+payment:
+  mock:
+    success-rate: 1.0
+server:
+  port: 8086

@@ -1,6 +1,6 @@
 package com.ticketing.availability.client;
 
-import com.ticketing.availability.entity.SeatAvailability;
+import com.ticketing.common.contract.catalog.CatalogShowResponse;
 import reactor.core.publisher.Mono;
 
 /**
@@ -10,10 +10,7 @@ import reactor.core.publisher.Mono;
 public interface CatalogClient {
 
     /**
-     * Fetches seat availability for a show from catalog service.
-     *
-     * @param showId the show ID
-     * @return Mono of SeatAvailability, or error if show not found
+     * Fetches full show payload from catalog (all seats). Availability layer filters holds/orders.
      */
-    Mono<SeatAvailability> getShowAvailability(String showId);
+    Mono<CatalogShowResponse> fetchCatalogShow(String showId);
 }

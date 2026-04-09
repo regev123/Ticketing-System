@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * OpenAPI / Swagger configuration for order-service.
+ * Delegates to OpenApiConfigurer for consistent structure.
  */
 @Configuration
 public class OpenApiConfig {

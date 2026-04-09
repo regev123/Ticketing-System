@@ -15,7 +15,15 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Set;
 
 /**
  * REST controller for orders.
@@ -40,5 +48,11 @@ public class OrderController {
     })
     public OrderResponse createOrder(@Valid @RequestBody CreateOrderRequest request) {
         return orderService.createOrder(request);
+    }
+
+    @GetMapping(ApiPaths.SHOW_UNAVAILABLE_SEAT_IDS)
+    @Operation(summary = "Unavailable seat IDs", description = "Seats on orders that are not cancelled (payment pending or confirmed)")
+    public Set<String> getUnavailableSeatIds(@PathVariable("showId") String showId) {
+        return orderService.getUnavailableSeatIdsForShow(showId);
     }
 }

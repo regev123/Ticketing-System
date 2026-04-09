@@ -9,4 +9,7 @@ import com.ticketing.availability.entity.SeatAvailability;
 public interface AvailabilityService {
 
     SeatAvailability getShowAvailability(String showId);
+
+    /** Drop cached availability for this show so the next read recomputes from holds/orders. */
+    void evictAvailabilityCache(String showId);
 }

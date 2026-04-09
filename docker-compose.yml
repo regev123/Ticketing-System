@@ -16,6 +16,17 @@ services:
       timeout: 5s
       retries: 5
 
+  adminer:
+    image: adminer:latest
+    container_name: ticketing-adminer
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "5551:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
   mongodb:
     image: mongo:7
     container_name: ticketing-mongodb
@@ -43,6 +54,18 @@ services:
       timeout: 5s
       retries: 5
 
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ticketing-redis-commander
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "5540:8081"
+    environment:
+      # label:host:port — connects to ticketing-redis on the compose network
+      REDIS_HOSTS: local:redis:6379
+
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: ticketing-zookeeper
@@ -63,15 +86,165 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
     healthcheck:
-      test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
+      # Broker can take 60s+ on first Docker Desktop (Windows) start
+      test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server 127.0.0.1:9092 || exit 1"]
       interval: 10s
-      timeout: 10s
-      retries: 5
-      start_period: 20s
+      timeout: 15s
+      retries: 20
+      start_period: 90s
+    restart: unless-stopped
+
+  catalog-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_MODULE: catalog-service
+    container_name: ticketing-catalog
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      MONGODB_HOST: mongodb
+      MONGODB_PORT: 27017
+
+  availability-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_MODULE: availability-service
+    container_name: ticketing-availability
+    depends_on:
+      redis:
+        condition: service_healthy
+      catalog-service:
+        condition: service_started
+      reservation-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+    ports:
+      - "8082:8082"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      RESERVATION_SERVICE_URL: http://reservation-service:8083
+      ORDER_SERVICE_URL: http://order-service:8084
+
+  reservation-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_MODULE: reservation-service
+    container_name: ticketing-reservation
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      AVAILABILITY_SERVICE_URL: http://availability-service:8082
+
+  order-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_MODULE: order-service
+    container_name: ticketing-order
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      reservation-service:
+        condition: service_started
+    ports:
+      - "8084:8084"
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ticketing_orders
+      POSTGRES_USER: ticketing
+      POSTGRES_PASSWORD: ticketing_secret
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RESERVATION_SERVICE_URL: http://reservation-service:8083
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_MODULE: payment-service
+    container_name: ticketing-payment
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8086:8086"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_MODULE: notification-service
+    container_name: ticketing-notification
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8085:8085"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_MODULE: api-gateway
+    container_name: ticketing-gateway
+    depends_on:
+      catalog-service:
+        condition: service_started
+      availability-service:
+        condition: service_started
+      reservation-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    environment:
+      CATALOG_SERVICE_URL: http://catalog-service:8081
+      AVAILABILITY_SERVICE_URL: http://availability-service:8082
+      RESERVATION_SERVICE_URL: http://reservation-service:8083
+      ORDER_SERVICE_URL: http://order-service:8084
 
 volumes:
   postgres_data:

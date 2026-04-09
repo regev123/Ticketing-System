@@ -6,6 +6,7 @@ package com.ticketing.order.constant;
 public final class ApiPaths {
 
     public static final String ORDERS = "/api/orders";
+    public static final String SHOW_UNAVAILABLE_SEAT_IDS = "/shows/{showId}/unavailable-seat-ids";
 
     private ApiPaths() {
         throw new UnsupportedOperationException("Constants class - do not instantiate");

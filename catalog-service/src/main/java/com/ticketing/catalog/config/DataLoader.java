@@ -35,9 +35,20 @@ public class DataLoader {
                 .toList();
 
         var show = new Show();
+        var startTime = Instant.now().plusSeconds(86400L * SampleDataConstants.DAYS_UNTIL_SHOW);
         show.setTitle(SampleDataConstants.SAMPLE_SHOW_TITLE);
-        show.setVenueId(SampleDataConstants.SAMPLE_VENUE_ID);
-        show.setStartTime(Instant.now().plusSeconds(86400L * SampleDataConstants.DAYS_UNTIL_SHOW));
+        show.setCategory(SampleDataConstants.SAMPLE_SHOW_CATEGORY);
+        show.setDescription(SampleDataConstants.SAMPLE_SHOW_DESCRIPTION);
+        show.setVenue(new Show.Venue(
+                SampleDataConstants.SAMPLE_VENUE_NAME,
+                SampleDataConstants.SAMPLE_CITY,
+                SampleDataConstants.SAMPLE_COUNTRY,
+                SampleDataConstants.SAMPLE_ADDRESS,
+                new Show.Geo(SampleDataConstants.SAMPLE_GEO_LAT, SampleDataConstants.SAMPLE_GEO_LNG)
+        ));
+        show.setDoorsOpenTime(startTime.minusSeconds(2 * 3600));
+        show.setStartTime(startTime);
+        show.setEndTime(startTime.plusSeconds(2 * 3600));
         show.setSeats(seats);
         return show;
     }

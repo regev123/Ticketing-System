@@ -14,5 +14,13 @@ catalog:
   service:
     url: ${CATALOG_SERVICE_URL:http://localhost:8081}
 
+reservation:
+  service:
+    url: ${RESERVATION_SERVICE_URL:http://localhost:8083}
+
+order:
+  service:
+    url: ${ORDER_SERVICE_URL:http://localhost:8084}
+
 server:
   port: 8082

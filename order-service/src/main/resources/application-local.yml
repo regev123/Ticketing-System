@@ -1,0 +1,7 @@
+# Optional profile for local dev when ticketing user doesn't exist
+# (e.g. Postgres volume was created with different env vars)
+# Run with: -Dspring.profiles.active=local
+spring:
+  datasource:
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:ticketing_secret}

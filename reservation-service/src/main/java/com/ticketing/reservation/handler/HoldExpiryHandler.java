@@ -3,9 +3,9 @@ package com.ticketing.reservation.handler;
 import com.ticketing.reservation.event.ReservationEventPublisher;
 import com.ticketing.reservation.mapper.event.HoldExpiredToReservationExpiredEventMapper;
 import com.ticketing.reservation.mapper.event.ReservationExpiredEventSource;
+import com.ticketing.reservation.integration.AvailabilityCacheNotifier;
 import com.ticketing.reservation.repository.HoldDataRepository;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
@@ -16,12 +16,12 @@ import java.util.Set;
  */
 @Component
 @RequiredArgsConstructor
-@Slf4j
 public class HoldExpiryHandler {
 
     private final HoldDataRepository holdDataRepository;
     private final HoldExpiredToReservationExpiredEventMapper expiredEventMapper;
     private final ReservationEventPublisher eventPublisher;
+    private final AvailabilityCacheNotifier availabilityCacheNotifier;
 
     /**
      * Called when a hold key expires. Publishes reservation.expired and cleans up metadata.
@@ -38,8 +38,10 @@ public class HoldExpiryHandler {
             if (meta != null) {
                 holdDataRepository.deleteHoldMeta(holdId);
             }
+            if (showId != null) {
+                availabilityCacheNotifier.notifyAvailabilityChanged(showId);
+            }
         } catch (Exception e) {
-            log.warn("Failed to publish reservation.expired for holdId={}: {}", holdId, e.getMessage());
             var source = new ReservationExpiredEventSource(holdId, null, Set.of());
             eventPublisher.publishReservationExpired(expiredEventMapper.toEvent(source));
         }

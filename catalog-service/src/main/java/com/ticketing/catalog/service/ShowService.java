@@ -1,5 +1,6 @@
 package com.ticketing.catalog.service;
 
+import com.ticketing.catalog.dto.CreateShowRequest;
 import com.ticketing.catalog.entity.Show;
 
 import java.util.List;
@@ -13,4 +14,6 @@ public interface ShowService {
     List<Show> findAll();
 
     Show findById(String id);
+
+    Show create(CreateShowRequest request);
 }

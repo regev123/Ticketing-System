@@ -26,12 +26,37 @@ public class Show {
     private String id;
     @Schema(description = "Show title", example = "Rock Concert 2025")
     private String title;
-    @Schema(description = "Venue identifier")
-    private String venueId;
+    @Schema(description = "Show category", example = "music")
+    private String category;
+    @Schema(description = "Optional show description")
+    private String description;
+    @Schema(description = "Denormalized venue details saved with this show")
+    private Venue venue;
+    @Schema(description = "Doors open time (ISO-8601)")
+    private Instant doorsOpenTime;
     @Schema(description = "Show start time (ISO-8601)")
     private Instant startTime;
+    @Schema(description = "Show end time (ISO-8601)")
+    private Instant endTime;
+    @Schema(description = "Optional poster/cover image URL or data URL (https or data:image/*)")
+    private String coverImageUrl;
     @Schema(description = "List of seats with pricing")
     private List<Seat> seats;
+
+    @Schema(description = "Venue details for the show")
+    public record Venue(
+            String venueName,
+            String city,
+            String country,
+            String address,
+            Geo geo
+    ) {}
+
+    @Schema(description = "Geographic coordinates")
+    public record Geo(
+            double lat,
+            double lng
+    ) {}
 
     @Schema(description = "Seat within a show")
     public record Seat(

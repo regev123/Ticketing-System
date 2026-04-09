@@ -3,15 +3,16 @@ spring:
     import: optional:classpath:application-common.yml
   application:
     name: reservation-service
+  kafka:
+    consumer:
+      group-id: reservation-service
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-  kafka:
-    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-
 server:
   port: 8083
+
+availability:
+  service:
+    url: ${AVAILABILITY_SERVICE_URL:http://localhost:8082}
