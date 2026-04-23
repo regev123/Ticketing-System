@@ -1,1 +1,0 @@
-export { ShowFiltersPanel } from './ShowFiltersPanel';

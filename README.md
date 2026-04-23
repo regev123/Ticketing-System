@@ -1,311 +1,217 @@
-# Ticket Booking Platform
+# <div align="center">🎟️ StagePass Ticketing Platform</div>
 
-Production-style ticket booking microservices built with **Java 21** and **Spring Boot 3**. Designed with clean code principles, SOLID design, and event-driven architecture.
+<div align="center">
+  <img alt="Java" src="https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white" />
+  <img alt="Spring Boot" src="https://img.shields.io/badge/Spring%20Boot-3.2-6DB33F?logo=springboot&logoColor=white" />
+  <img alt="React" src="https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" />
+  <img alt="Kafka" src="https://img.shields.io/badge/Apache%20Kafka-Event%20Driven-231F20?logo=apachekafka&logoColor=white" />
+  <img alt="Docker" src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" />
+</div>
 
----
+<br />
 
-## Table of Contents
+**StagePass** is a production-style, event-driven ticketing system that covers the full lifecycle:
+catalog management, seat availability, reservation locking, payments, order management, ticket PDFs, QR check-in, scanner operations, notifications, and an admin insights dashboard.
 
-- [Overview](#overview)
-- [Architecture](#architecture)
-- [Technology Stack](#technology-stack)
-- [Project Structure](#project-structure)
-- [Services](#services)
-- [Event Flow](#event-flow)
-- [Code Quality & Design Principles](#code-quality--design-principles)
-- [Refactoring Summary](#refactoring-summary)
-- [Quick Start](#quick-start)
-- [API Endpoints](#api-endpoints)
-- [Shared Modules](#shared-modules)
-- [Environment Variables](#environment-variables)
-- [Frontend Web App](#frontend-web-app)
-- [Roadmap](#roadmap)
+Designed to demonstrate **real-world backend architecture**, **clean frontend engineering**, and **operational thinking** suitable for senior-level interviews and portfolio reviews.
 
 ---
 
-## Overview
+## ✨ Product Highlights
 
-The platform enables ticket booking with anti-double-booking guarantees:
-
-1. **Catalog** – Browse shows and seats (MongoDB)
-2. **Availability** – Seat availability cached from catalog (Redis)
-3. **Reservation** – Hold seats for 7 minutes with Redis locks (Redis + Kafka)
-4. **Order** – Create orders and integrate with payment flow (PostgreSQL + Kafka)
-
-The system uses Kafka for event-driven communication and Redis for caching and distributed locking.
+- **End-to-end booking flow**: discover events → hold seats → checkout → order confirmation
+- **Anti-double-booking strategy** using Redis locking + hold expiry + availability synchronization
+- **JWT-based auth** with role-based access (`USER`, `ADMIN`, `SCANNER`)
+- **QR-based ticket check-in** with one-time scan enforcement and scanner restrictions
+- **Admin scanner account management** with event-bound or global scanner behavior
+- **Order lifecycle controls** including partial seat cancellation and policy-driven constraints
+- **Notification pipeline** through Kafka and centralized email sending (verification + order tickets)
+- **Modern React UI** with protected routes, role-aware navigation, and polished UX states
 
 ---
 
-## Architecture
+## 🧭 Table of Contents
 
+- [System Architecture](#-system-architecture)
+- [Core Services](#-core-services)
+- [Domain Flows](#-domain-flows)
+- [Tech Stack](#-tech-stack)
+- [Project Layout](#-project-layout)
+- [Local Development](#-local-development)
+- [Runbook: Start & Verify](#-runbook-start--verify)
+- [API Surface (Gateway)](#-api-surface-gateway)
+- [Frontend (StagePass Web App)](#-frontend-stagepass-web-app)
+- [Configuration & Environment](#-configuration--environment)
+- [Quality, Testing, and Engineering Practices](#-quality-testing-and-engineering-practices)
+- [Kubernetes](#-kubernetes)
+- [Roadmap](#-roadmap)
+- [License](#-license)
+
+---
+
+## 🏗️ System Architecture
+
+### High-level topology
+
+```mermaid
+flowchart LR
+  UI["StagePass Web (React/Vite)<br/>:3000"] --> GW["API Gateway<br/>:8080"]
+
+  GW --> AUTH["Auth Service<br/>:8087<br/>MongoDB"]
+  GW --> CAT["Catalog Service<br/>:8081<br/>MongoDB"]
+  GW --> AVL["Availability Service<br/>:8082<br/>Redis cache"]
+  GW --> RSV["Reservation Service<br/>:8083<br/>Redis locks"]
+  GW --> ORD["Order Service<br/>:8084<br/>PostgreSQL"]
+
+  ORD -- "payment.requested" --> PAY["Payment Service<br/>:8086"]
+  PAY -- "payment.succeeded / failed" --> ORD
+  ORD -- "notification.requested" --> NTF["Notification Service<br/>:8085"]
+
+  RSV <--> REDIS["Redis :6379"]
+  AVL <--> REDIS
+  ORD --> PG["PostgreSQL :5432"]
+  CAT --> MONGO["MongoDB :27017"]
+  AUTH --> MONGO
+  ORD <--> KAFKA["Kafka :9092"]
+  PAY <--> KAFKA
+  NTF <--> KAFKA
+  RSV <--> KAFKA
+  AUTH <--> KAFKA
 ```
-                              ┌─────────────────┐
-                              │  API Gateway    │
-                              │  (port 8080)    │
-                              └────────┬────────┘
-                                       │ routes /api/*
-         ┌─────────────────────────────┼─────────────────────────────┐
-         │                             │                             │
-         ▼                             ▼                             ▼
-┌─────────────────┐     HTTP      ┌──────────────────┐     HTTP      ┌─────────────────┐
-│ Catalog Service │◄──────────────│ Availability     │               │ Reservation     │
-│ (MongoDB) 8081  │               │ Service 8082     │◄──────────────│ Service 8083    │
-└─────────────────┘               └──────────────────┘               └────────┬────────┘
-                                                                              │ POST hold
-                                                                              ▼
-┌─────────────────┐     Kafka     ┌──────────────────┐               ┌─────────────────┐
-│ Payment Service │◄──────────────│ Order Service    │◄──────────────│ Client / UI     │
-│ (mock)          │               │ (PostgreSQL) 8084│   POST order  └─────────────────┘
-└────────┬────────┘               └────────┬─────────┘
-         │                                │
-         │ payment.succeeded/failed       │ order.confirmed/cancelled
-         └────────────────────────────────┘
-```
+
+### Why this architecture is interview-strong
+
+- **Service boundaries are explicit** (auth, catalog, reservation, order, payment, notification)
+- **Synchronous + asynchronous orchestration** (HTTP for query/commands, Kafka for workflow events)
+- **Read/write performance balance** (Redis cache/locks + PostgreSQL transactional persistence)
+- **Operational realism** (gateway routing, role guards, message-driven side effects, dockerized infra)
 
 ---
 
-## Technology Stack
+## 🧩 Core Services
 
-| Component       | Technology                        |
-|----------------|-----------------------------------|
-| Runtime        | Java 21                           |
-| Framework      | Spring Boot 3.2                   |
-| API Gateway    | Spring Cloud Gateway              |
-| Databases      | MongoDB, PostgreSQL               |
-| Cache / Store  | Redis                             |
-| Messaging      | Apache Kafka                      |
-| API Docs       | SpringDoc OpenAPI 3               |
-| Build          | Maven                             |
-| **Web UI**     | Vite 5, React 18, TypeScript, TanStack Query, Tailwind (`frontend/`) |
+| Service | Port | Storage | Role |
+|---|---:|---|---|
+| `api-gateway` | 8080 | — | Single entrypoint for `/api/*`, forwards to internal services |
+| `auth-service` | 8087 | MongoDB | Registration, login, token auth, role claims, scanner account lifecycle |
+| `catalog-service` | 8081 | MongoDB | Shows, venue details, seating map, event metadata |
+| `availability-service` | 8082 | Redis | Fast seat availability lookup and cache layer |
+| `reservation-service` | 8083 | Redis | Seat hold lifecycle, lock acquisition/release, hold extension |
+| `order-service` | 8084 | PostgreSQL | Orders, cancellation logic, ticket scan validation, admin metrics |
+| `payment-service` | 8086 | — | Payment simulation worker (Kafka consumer/producer) |
+| `notification-service` | 8085 | — | Email orchestration + PDF ticket generation + verification emails |
+
+Shared modules:
+
+- `ticketing-events`: shared Kafka event DTOs/contracts
+- `ticketing-common`: cross-cutting exceptions, constants, auth helpers, mappers
 
 ---
 
-## Project Structure
+## 🔄 Domain Flows
 
-```
+### 1) Booking flow
+1. User selects seats for a show.
+2. Reservation service acquires Redis seat locks (TTL-based hold).
+3. Checkout creates order (`PAYMENT_PENDING`) in PostgreSQL.
+4. Order service publishes `payment.requested`.
+5. Payment service publishes `payment.succeeded` or `payment.failed`.
+6. Order status transitions to `CONFIRMED` / `CANCELLED`.
+7. Notification service receives request and sends confirmation email (+ ticket PDFs).
+
+### 2) Ticket check-in flow
+1. Ticket PDF contains signed QR token.
+2. Scanner opens `/check-in?token=...`.
+3. Order service validates token, order-seat ownership, event restrictions, and prior usage.
+4. Scan result returned immediately: accepted / already used / invalid / expired.
+
+### 3) Cancellation flow
+- Supports seat-level and full-order cancellation.
+- Enforces policy window and status transitions including `PARTIALLY_CANCELLED`.
+- Restores seat availability for future purchases.
+
+---
+
+## 🛠️ Tech Stack
+
+### Backend
+- Java 21
+- Spring Boot 3.2.x
+- Spring Cloud Gateway
+- Spring Data (MongoDB + JPA/PostgreSQL)
+- Spring Security + JWT
+- Kafka (event-driven messaging)
+- Redis (cache + distributed locks)
+- Maven (multi-module build)
+
+### Frontend
+- React 18 + TypeScript
+- Vite 5
+- TanStack Query
+- React Router
+- Tailwind CSS
+
+### Infra / Ops
+- Docker + Docker Compose
+- Kafka + Zookeeper
+- Admin tools: Adminer, Redis Commander
+- Kubernetes manifests (`k8s/`)
+
+---
+
+## 🗂️ Project Layout
+
+```text
 ticketing-system/
-├── pom.xml                      # Parent POM (modules)
-├── docker-compose.yml           # Infrastructure (Postgres, Mongo, Redis, Kafka, Zookeeper)
-├── README.md
-│
-├── frontend/                    # StagePass web app (Vite + React; proxies /api → gateway)
-├── ticketing-events/            # Shared Kafka event DTOs
-├── ticketing-common/            # Shared utilities, exceptions, mappers, contracts
-│
-├── k8s/                         # Kubernetes manifests (Deployments, Services, Ingress, HPA)
-├── api-gateway/                 # API Gateway (port 8080) – routes to backend services
-├── catalog-service/             # Show catalog (port 8081)
-├── availability-service/        # Seat availability cache (port 8082)
-├── reservation-service/         # Seat holds & locks (port 8083)
-├── order-service/               # Orders & payment flow (port 8084)
-├── payment-service/             # Mock payment processor (Kafka only)
-└── notification-service/        # Notification consumer (Kafka only)
-```
-
-### Per-Service Structure (Aligned Across All Services)
-
-```
-service/
-├── config/          # Infrastructure (OpenAPI, Redis, WebClient, etc.)
-├── controller/      # HTTP layer – delegates to service
-├── service/         # Business logic (interface + impl)
-├── repository/      # Data access (interface + impl or Spring Data)
-├── mapper/          # DTO/entity/event mappers (ToEntityMapper, ToDtoMapper, ToEventMapper)
-├── event/           # Kafka event publishers (interface + impl)
-├── handler/         # Domain event handlers (where applicable)
-├── consumer/        # Kafka consumers (where applicable)
-├── constant/        # ApiPaths, OpenApiConstants
-├── dto/             # Request/Response DTOs
-└── entity/          # Domain entities
+├── api-gateway/
+├── auth-service/
+├── catalog-service/
+├── availability-service/
+├── reservation-service/
+├── order-service/
+├── payment-service/
+├── notification-service/
+├── ticketing-common/
+├── ticketing-events/
+├── frontend/
+├── k8s/
+├── docker-compose.yml
+├── pom.xml
+└── README.md
 ```
 
 ---
 
-## Services
+## 🚀 Local Development
 
-| Service            | Port | Database   | Responsibility |
-|--------------------|------|------------|----------------|
-| api-gateway        | 8080 | —          | Routes /api/* to catalog, availability, reservation, order |
-| catalog-service    | 8081 | MongoDB    | Shows, venues, seats; source of truth |
-| availability-service | 8082 | Redis (cache) | Seat availability; calls catalog, caches 5 min |
-| reservation-service | 8083 | Redis      | Seat locks (SET NX PX 7 min); holds, expiry events |
-| order-service      | 8084 | PostgreSQL | Orders; payment.requested; consumes payment.succeeded/failed |
-| payment-service    | —    | —          | Mock: consumes payment.requested; publishes succeeded/failed |
-| notification-service | —  | —          | Consumes notification.requested; mock sends (logs) |
+### Prerequisites
 
----
+- Docker Desktop
+- Java 21
+- Node.js 18+ (or 20+ recommended)
+- Maven (`mvn`) installed (or use your wrapper setup)
 
-## Event Flow
-
-| Event               | Publisher         | Consumer(s)    | Purpose |
-|---------------------|-------------------|----------------|---------|
-| `reservation.created` | reservation-service | —              | Hold created |
-| `reservation.expired` | reservation-service | —              | Hold expired (Redis TTL) |
-| `payment.requested` | order-service      | payment-service | Trigger payment |
-| `payment.succeeded` | payment-service    | order-service   | Confirm order, publish order.confirmed |
-| `payment.failed`    | payment-service    | order-service   | Cancel order, publish order.cancelled |
-| `order.confirmed`   | order-service      | reservation-service (future), notification-service | Confirm hold, send notification |
-| `order.cancelled`   | order-service      | reservation-service (future), notification-service | Release hold, send notification |
-| `notification.requested` | order-service | notification-service | Trigger email/notification |
-
----
-
-## Code Quality & Design Principles
-
-### SOLID
-
-| Principle | Implementation |
-|-----------|----------------|
-| **S**ingle Responsibility | Controllers (HTTP), services (orchestration), handlers (event logic), mappers (conversion), repositories (persistence) |
-| **O**pen/Closed | Interfaces for publishers, clients, services; new implementations can be added without changing callers |
-| **L**iskov Substitution | Entities and DTOs substitutable within their hierarchies |
-| **I**nterface Segregation | Small, focused interfaces (`ReservationService`, `CatalogClient`, `PaymentEventPublisher`, etc.) |
-| **D**ependency Inversion | Services depend on abstractions (`ReservationEventPublisher`, `HoldDataRepository`, `CatalogClient`) |
-
-### Clean Code
-
-- **Meaningful names** – `createHold`, `releaseHold`, `HoldData`, `seatLockKey`
-- **Small functions** – Logic split into handlers, mappers, and helpers
-- **Constants** – No magic values; `RedisKeys`, `ApiPaths`, `HttpStatusCodes`, `SharedOpenApiConstants`
-- **Javadoc** – SRP/DIP noted at class level where relevant
-- **Consistent structure** – Same layout across services for easier navigation and onboarding
-
----
-
-## Refactoring Summary
-
-### ticketing-common
-
-- **SharedOpenApiConstants.API_VERSION** – Single source for `"1.0.0"` across services
-- **Mapper interfaces** – `ToEntityMapper<T,E>`, `ToDtoMapper<E,D>`, `ToEventMapper<E,V>` with SRP-focused Javadoc
-
-### catalog-service
-
-- **OpenApiConstants** – Uses `SharedOpenApiConstants.API_VERSION`
-- **ShowRepository** – ISP Javadoc
-- **ShowService / ShowServiceImpl** – DIP/SRP Javadoc
-- **ShowController** – SRP/DIP Javadoc
-- **DataLoader** – SRP Javadoc
-- **ShowMapper** – Maps `Show` → `CatalogShowResponse` for shared contract use
-
-### availability-service
-
-- **OpenApiConstants** – Uses `SharedOpenApiConstants.API_VERSION`
-- **CatalogClient** – Interface with Javadoc; `CatalogClientImpl` for WebClient
-- **SeatAvailabilityMapper** – Implements `ToEntityMapper<CatalogShowResponse, SeatAvailability>`
-- **AvailabilityController / Service** – SRP/DIP Javadoc
-
-### reservation-service
-
-- **HoldDataRepository** – Interface abstracting Redis; `RedisHoldDataRepository` impl with `acquireSeatLocks`, `save`, `findById`, `findHoldMeta`, `delete`
-- **ReservationEventPublisher** – Interface; `KafkaReservationEventPublisher` impl
-- **HoldExpiryHandler** – Dedicated handler for hold expiry (moved out of `RedisConfig`)
-- **RedisConfig** – Config-only; delegates hold expiry to `HoldExpiryHandler`
-- **Event mappers** – `HoldDataToReservationCreatedEventMapper`, `HoldExpiredToReservationExpiredEventMapper` implement `ToEventMapper`
-- **OpenApiConstants** – Uses `SharedOpenApiConstants.API_VERSION`
-
-### api-gateway
-
-- **Spring Cloud Gateway** – Routes `/api/shows`, `/api/availability`, `/api/reservations`, `/api/orders` to respective backend services
-- **Configurable URIs** – `CATALOG_SERVICE_URL`, `AVAILABILITY_SERVICE_URL`, `RESERVATION_SERVICE_URL`, `ORDER_SERVICE_URL` env vars for deployment flexibility
-
-### order-service
-
-- **PaymentEventPublisher** – Interface; `KafkaPaymentEventPublisher` impl
-- **OrderEventPublisher** – Interface; `KafkaOrderEventPublisher` impl
-- **PaymentEventHandler** – Handles `payment.succeeded` / `payment.failed`; updates order, publishes `order.confirmed` / `order.cancelled`
-- **PaymentEventConsumer** – Deserializes and routes events to `PaymentEventHandler`
-- **Event mappers** – `OrderToPaymentRequestedEventMapper`, `OrderToOrderConfirmedEventMapper`, `OrderToOrderCancelledEventMapper` (with `OrderCancelledEventSource`)
-- **OrderMapper** – Implements `ToEntityMapper` and `ToDtoMapper`
-- **OpenApiConstants** – Uses `SharedOpenApiConstants.API_VERSION`
-
----
-
-## Quick Start
-
-### 1. Start Infrastructure
+### 1) Start full stack with Docker Compose
 
 ```bash
 docker compose up -d
 ```
 
-| Service    | Host        | Details |
-|------------|-------------|---------|
-| PostgreSQL | localhost:5432 | DB: `ticketing_orders`, user: `ticketing`, password: `ticketing_secret` |
-| MongoDB    | localhost:27017 | |
-| Redis      | localhost:6379  | Keyspace notifications enabled |
-| Kafka      | localhost:9092  | |
-| Zookeeper  | localhost:2181  | |
+Primary local endpoints:
 
-### 2. Build
+- Frontend: `http://localhost:3000`
+- API Gateway: `http://localhost:8080`
+- Swagger docs:
+  - Auth: `http://localhost:8087/swagger-ui.html`
+  - Catalog: `http://localhost:8081/swagger-ui.html`
+  - Availability: `http://localhost:8082/swagger-ui.html`
+  - Reservation: `http://localhost:8083/swagger-ui.html`
+  - Order: `http://localhost:8084/swagger-ui.html`
+- Adminer (Postgres UI): `http://localhost:5551`
+- Redis Commander: `http://localhost:5540`
 
-```bash
-mvn clean install
-```
-
-### 3. Run Services (in separate terminals)
-
-```bash
-# API Gateway (single entry point – start first or with backends)
-mvn -pl api-gateway spring-boot:run
-
-# Catalog (required for availability)
-mvn -pl catalog-service spring-boot:run
-
-# Availability (depends on catalog)
-mvn -pl availability-service spring-boot:run
-
-# Reservation (Redis + Kafka)
-mvn -pl reservation-service spring-boot:run
-
-# Order (PostgreSQL + Kafka)
-mvn -pl order-service spring-boot:run
-
-# Payment (Kafka only - mock processor)
-mvn -pl payment-service spring-boot:run
-
-# Notification (Kafka only - consumes from order-service)
-mvn -pl notification-service spring-boot:run
-```
-
-### 4. Verify
-
-- **Via API Gateway (port 8080):** `http://localhost:8080/api/shows`, `http://localhost:8080/api/availability/{showId}`, etc.
-- **Direct service URLs (Swagger):**
-  - Catalog: http://localhost:8081/swagger-ui.html
-  - Availability: http://localhost:8082/swagger-ui.html
-  - Reservation: http://localhost:8083/swagger-ui.html
-  - Order: http://localhost:8084/swagger-ui.html
-- Payment: Kafka-only (no HTTP API)
-- Notification: Kafka-only (no HTTP API)
-
----
-
-## API Endpoints
-
-All endpoints below are available via **API Gateway** at `http://localhost:8080` or directly on the service ports.
-
-| Service    | Method | Path                         | Description |
-|------------|--------|------------------------------|-------------|
-| Catalog    | GET    | /api/shows                   | List all shows |
-| Catalog    | GET    | /api/shows/{id}              | Get show by ID (venue, schedule, seats, optional cover) |
-| Catalog    | POST   | /api/shows                   | Create show (admin): layout, pricing, optional `coverImageUrl` |
-| Availability | GET  | /api/availability/{showId}   | Get seat availability (cached) |
-| Reservation | POST  | /api/reservations            | Create hold (showId, seatIds, userId) |
-| Reservation | DELETE | /api/reservations/{holdId}   | Release hold |
-| Reservation | GET    | /api/reservations/shows/{showId}/locked-seats | Seat IDs currently locked for the show |
-| Reservation | POST   | /api/reservations/hold       | Batch hold seats (optional merge with existing `holdId`) |
-| Reservation | POST   | /api/reservations/release    | Batch release seats from a hold |
-| Reservation | POST   | /api/reservations/extend-hold | Extend hold TTL for caller’s seats |
-| Order      | POST   | /api/orders                  | Create order (holdId, showId, seatIds, userId, amount, currency) |
-
----
-
-## Frontend Web App
-
-The **`frontend/`** package is the **StagePass** UI: browse shows (filters, pagination), seat selection with debounced batch holds against `/api/reservations/hold` and `/release`, checkout → `POST /api/orders`, and an **Admin** flow to **`POST /api/shows`**.
-
-**Quick start** (with the API Gateway on `http://localhost:8080`):
+### 2) Run frontend locally (optional if not containerized)
 
 ```bash
 cd frontend
@@ -313,96 +219,149 @@ npm install
 npm run dev
 ```
 
-- Dev server: **http://localhost:3000** — Vite proxies **`/api`** to the gateway (see `frontend/vite.config.ts`).
-- Production / custom gateway URL: set **`VITE_API_BASE`** to the gateway origin (no trailing slash required); see `frontend/src/config/env.ts`.
-- Demo identity for holds/orders: **`frontend-user`** (`DEMO_USER_ID` in `frontend/src/config/constants.ts`) until auth is added.
+---
 
-Full UI architecture, routes, types, and checklist: **[frontend/FRONTEND_PLAN.md](frontend/FRONTEND_PLAN.md)**.
+## ✅ Runbook: Start & Verify
+
+### Build all Java modules
+
+```bash
+mvn clean install
+```
+
+### Start services manually (if not using compose apps)
+
+```bash
+mvn -pl auth-service spring-boot:run
+mvn -pl catalog-service spring-boot:run
+mvn -pl availability-service spring-boot:run
+mvn -pl reservation-service spring-boot:run
+mvn -pl order-service spring-boot:run
+mvn -pl payment-service spring-boot:run
+mvn -pl notification-service spring-boot:run
+mvn -pl api-gateway spring-boot:run
+```
+
+### Quick health checks
+
+- `GET http://localhost:8080/api/shows`
+- Login/register through frontend and validate protected navigation by role
+- Execute seat hold + checkout flow and confirm order email behavior
 
 ---
 
-## Shared Modules
+## 🌐 API Surface (Gateway)
 
-### ticketing-events
+Gateway base URL: `http://localhost:8080`
 
-Kafka event DTOs with `@JsonTypeName` for polymorphic deserialization:
-
-- `reservation.created`, `reservation.expired`
-- `payment.requested`, `payment.succeeded`, `payment.failed`
-- `order.confirmed`, `order.cancelled`
-- `notification.requested`
-
-### ticketing-common
-
-| Package       | Contents |
-|---------------|----------|
-| `exception`   | `ApiException`, `ResourceNotFoundException`, `ConflictException`, `BadRequestException`, `GlobalExceptionHandler`, `ErrorResponse` |
-| `constant`    | `HttpStatusCodes`, `SharedOpenApiConstants` |
-| `config`      | `OpenApiConfigurer`, `WebConfig` |
-| `contract/catalog` | `CatalogShowResponse`, `CatalogApiPaths` |
-| `mapper`      | `ToEntityMapper<T,E>`, `ToDtoMapper<E,D>`, `ToEventMapper<E,V>` |
-
-Use `@Import(WebConfig.class)` in your service application.
-
----
-
-## Environment Variables
-
-| Variable               | Default        | Used By |
-|------------------------|----------------|---------|
-| `REDIS_HOST`           | localhost      | availability, reservation |
-| `REDIS_PORT`           | 6379           | availability, reservation |
-| `KAFKA_BOOTSTRAP_SERVERS` | localhost:9092 | reservation, order |
-| `POSTGRES_HOST`        | localhost      | order |
-| `POSTGRES_PORT`        | 5432           | order |
-| `POSTGRES_DB`          | ticketing_orders | order |
-| `POSTGRES_USER`        | ticketing      | order |
-| `POSTGRES_PASSWORD`    | ticketing_secret | order |
-| `catalog.service.url`  | http://localhost:8081 | availability |
-| `CATALOG_SERVICE_URL`  | http://localhost:8081 | api-gateway |
-| `AVAILABILITY_SERVICE_URL` | http://localhost:8082 | api-gateway |
-| `RESERVATION_SERVICE_URL` | http://localhost:8083 | api-gateway |
-| `ORDER_SERVICE_URL`    | http://localhost:8084 | api-gateway |
+| Domain | Method | Path | Description |
+|---|---|---|---|
+| Auth | POST | `/api/auth/register` | Register user |
+| Auth | POST | `/api/auth/login` | Login (returns JWT) |
+| Auth | GET | `/api/auth/me` | Current user profile |
+| Catalog | GET | `/api/shows` | List shows |
+| Catalog | GET | `/api/shows/{id}` | Show details |
+| Catalog | POST | `/api/shows` | Admin create show |
+| Availability | GET | `/api/availability/{showId}` | Seat availability |
+| Reservation | POST | `/api/reservations/hold` | Batch hold seats |
+| Reservation | POST | `/api/reservations/release` | Batch release seats |
+| Reservation | POST | `/api/reservations/extend-hold` | Extend hold TTL |
+| Orders | POST | `/api/orders` | Create order |
+| Orders | GET | `/api/orders/me` | User order history |
+| Orders | GET | `/api/orders/me/{orderId}` | User order details |
+| Orders | POST | `/api/orders/check-in/scan` | Scanner/admin ticket scan |
+| Orders | GET | `/api/orders/admin/metrics` | Admin metrics dashboard |
 
 ---
 
-## Kubernetes
+## 🎨 Frontend (StagePass Web App)
 
-Kubernetes manifests are in `k8s/`:
+The frontend includes:
 
-- **namespace.yaml** – `ticketing` namespace
-- **infrastructure/** – Postgres, MongoDB, Redis, Kafka, Zookeeper
-- **\*-deployment.yaml** – Deployments and Services for each application
-- **ingress.yaml** – Ingress routing `/api` to API Gateway
-- **hpa.yaml** – Horizontal Pod Autoscalers for HTTP services
+- Home discovery with upcoming/past event segmentation
+- Seat selection and hold timer experience
+- Checkout + order confirmation flow
+- My Orders pages (USER only)
+- Admin workflows (create/edit/manage shows, scanner management, metrics)
+- Scanner check-in interface with immediate scan feedback
+- Modern 404 page and role-aware protected routing
 
-See [k8s/README.md](k8s/README.md) for apply order and image build instructions.
+Useful scripts:
 
----
-
-## Testing
-
-- **reservation-service:** Testcontainers (Redis + Kafka) – `ReservationLockingTest`: first hold succeeds, second hold for same seat fails with `ConflictException`, release then re-hold succeeds.
-- **order-service:** Testcontainers (PostgreSQL + Kafka) – `OrderPaymentFlowTest`: create order then `handlePaymentSucceeded` → order CONFIRMED; create order then `handlePaymentFailed` → order CANCELLED.
-
-Run: `mvn -pl reservation-service test` or `mvn -pl order-service test` (requires Docker).
-
----
-
-## Roadmap
-
-- [x] Payment service (mock; consumes `payment.requested`, publishes succeeded/failed)
-- [x] Notification service (consumes `notification.requested`, mock sends)
-- [x] API Gateway
-- [x] Reservation batch hold/release, locked-seats, extend-hold HTTP API
-- [x] Catalog create-show API and rich show model (venue, category, cover image)
-- [x] Frontend web app (`frontend/`) — browse, seat picker, checkout, admin create show
-- [x] Reservation-service consumers for `order.confirmed` / `order.cancelled` (confirm/release holds)
-- [x] Kubernetes manifests (Deployments, Services, Ingress, HPA)
-- [x] Testcontainers tests (reservation locking, order–payment flow)
+```bash
+cd frontend
+npm run dev
+npm run build
+npm run lint
+```
 
 ---
 
-## License
+## ⚙️ Configuration & Environment
 
-Proprietary – All rights reserved.
+The stack is configured mainly via `docker-compose.yml`. Key variables include:
+
+| Variable | Purpose |
+|---|---|
+| `JWT_SECRET` | Shared JWT signing/validation secret |
+| `KAFKA_BOOTSTRAP_SERVERS` | Kafka broker address |
+| `POSTGRES_*` | Order service database connectivity |
+| `MONGODB_HOST` / `MONGODB_PORT` | Mongo services connectivity |
+| `REDIS_HOST` / `REDIS_PORT` | Redis cache/lock backend |
+| `AUTH_SEED_DEFAULT_SCANNER_*` | Default scanner bootstrap account |
+| `ORDER_CANCELLATION_*` | Cancellation policy switches and cutoff |
+| `MAIL_*` + `NOTIFICATION_EMAIL_*` | SMTP and sender configuration |
+| `TICKET_QR_CHECKIN_URL_BASE` | URL encoded in generated ticket QR |
+
+> Security note: do not commit real production secrets in public repositories. Use `.env`, secret managers, or CI/CD secure variables.
+
+---
+
+## 🧪 Quality, Testing, and Engineering Practices
+
+- Clean architecture boundaries by service responsibility
+- SOLID-driven interfaces and mappers for low coupling
+- Event contracts centralized in shared module
+- Testcontainers-based integration tests for critical flows (reservation/order)
+- Role-based route guards in frontend and claim-based authorization in backend
+- Defensive error handling for race conditions (e.g., duplicate scans)
+
+Run sample tests:
+
+```bash
+mvn -pl reservation-service test
+mvn -pl order-service test
+```
+
+---
+
+## ☸️ Kubernetes
+
+Kubernetes manifests live under `k8s/` and include:
+
+- Namespace
+- Infrastructure manifests (Postgres, MongoDB, Redis, Kafka, Zookeeper)
+- Service deployments + services
+- Ingress configuration
+- Horizontal Pod Autoscalers
+
+For apply sequence and image instructions, see `k8s/README.md`.
+
+---
+
+## 🛣️ Roadmap
+
+- [x] Event-driven payment and notification services
+- [x] JWT auth + role-based guards (USER / ADMIN / SCANNER)
+- [x] QR ticket generation and secure scan endpoint
+- [x] Scanner account lifecycle and event-scoped permissions
+- [x] Admin metrics dashboard (global + per-event)
+- [x] Polished UX flows (orders, cancellation, 404, admin nav)
+- [ ] Add observability dashboards (Prometheus/Grafana/OpenTelemetry)
+- [ ] Introduce CI pipeline for lint/test/build/deploy automation
+
+---
+
+## 📄 License
+
+Proprietary - All rights reserved.

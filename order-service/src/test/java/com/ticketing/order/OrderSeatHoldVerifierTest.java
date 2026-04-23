@@ -38,7 +38,6 @@ class OrderSeatHoldVerifierTest {
                 .holdId(holdId)
                 .showId(showId)
                 .seatIds(Set.of(seatId))
-                .userId(userId)
                 .amount(BigDecimal.valueOf(50.00))
                 .currency("USD")
                 .build();
@@ -55,7 +54,7 @@ class OrderSeatHoldVerifierTest {
         String holdJson = mapper.writeValueAsString(snapshot);
         Mockito.when(ops.get(eq("hold:" + holdId))).thenReturn(holdJson);
 
-        assertDoesNotThrow(() -> verifier.verifyBeforeOrder(req));
+        assertDoesNotThrow(() -> verifier.verifyBeforeOrder(req, userId));
     }
 
     @Test
@@ -77,7 +76,6 @@ class OrderSeatHoldVerifierTest {
                 .holdId(holdId)
                 .showId(showId)
                 .seatIds(Set.of(seatId))
-                .userId(userId)
                 .amount(BigDecimal.valueOf(50.00))
                 .currency("USD")
                 .build();
@@ -85,7 +83,7 @@ class OrderSeatHoldVerifierTest {
         // Seat value in Redis belongs to another user.
         Mockito.when(ops.get(eq("seat:" + showId + ":" + seatId))).thenReturn("user-2");
 
-        assertThatThrownBy(() -> verifier.verifyBeforeOrder(req))
+        assertThatThrownBy(() -> verifier.verifyBeforeOrder(req, userId))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("Seat not held or expired: " + seatId);
     }
@@ -109,7 +107,6 @@ class OrderSeatHoldVerifierTest {
                 .holdId(holdId)
                 .showId(showId)
                 .seatIds(Set.of(seatId))
-                .userId(userId)
                 .amount(BigDecimal.valueOf(50.00))
                 .currency("USD")
                 .build();
@@ -117,7 +114,7 @@ class OrderSeatHoldVerifierTest {
         Mockito.when(ops.get(eq("seat:" + showId + ":" + seatId))).thenReturn(userId);
         Mockito.when(ops.get(eq("hold:" + holdId))).thenReturn(null);
 
-        assertThatThrownBy(() -> verifier.verifyBeforeOrder(req))
+        assertThatThrownBy(() -> verifier.verifyBeforeOrder(req, userId))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("Hold expired or invalid");
     }
@@ -142,7 +139,6 @@ class OrderSeatHoldVerifierTest {
                 .holdId(holdId)
                 .showId(showId)
                 .seatIds(Set.of(seatId))
-                .userId(userId)
                 .amount(BigDecimal.valueOf(50.00))
                 .currency("USD")
                 .build();
@@ -159,7 +155,7 @@ class OrderSeatHoldVerifierTest {
         String holdJson = mapper.writeValueAsString(snapshot);
         Mockito.when(ops.get(eq("hold:" + holdId))).thenReturn(holdJson);
 
-        assertThatThrownBy(() -> verifier.verifyBeforeOrder(req))
+        assertThatThrownBy(() -> verifier.verifyBeforeOrder(req, userId))
                 .isInstanceOf(ConflictException.class)
                 .hasMessageContaining("Seat list does not match hold");
     }

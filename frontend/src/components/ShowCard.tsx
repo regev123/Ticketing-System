@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { getEventCategoryLabel } from '@/data/eventCategories';
 import { formatDate, formatPrice, lowestPricedSeat } from '@/utils';
 import { getShowCardImageUrl } from '@/data/concertImages';
-import { useAvailability } from '@/hooks';
-import type { Show } from '@/types/api';
+import { PillBadge } from '@/components/forms';
+import { ArrowRightIcon, CalendarIcon, MapPinIcon, TicketIcon } from '@/components/icons';
+import type { SeatAvailability, Show } from '@/types/api';
 
 function hueFromId(id: string): number {
   let h = 0;
@@ -14,18 +15,37 @@ function hueFromId(id: string): number {
 
 interface ShowCardProps {
   show: Show;
+  availability?: SeatAvailability;
+  isAvailabilityPending?: boolean;
+  isAvailabilityError?: boolean;
 }
 
 const badgeGlass =
   'inline-flex max-w-full items-center justify-center gap-0.5 rounded-full border px-2 py-1 text-[10px] font-semibold leading-none shadow-md backdrop-blur-md transition duration-300 sm:gap-1 sm:px-2.5 sm:py-1.5 sm:text-[11px]';
 
-export function ShowCard({ show }: ShowCardProps) {
-  const { data: availability, isPending, isError, isSuccess } = useAvailability(show.id);
-  const startingOffer = isSuccess && availability ? lowestPricedSeat(availability.seats) : null;
+export function ShowCard({
+  show,
+  availability,
+  isAvailabilityPending = false,
+  isAvailabilityError = false,
+}: ShowCardProps) {
+  const startingOffer = availability ? lowestPricedSeat(availability.seats) : null;
+  const isEnded = Number.isFinite(Date.parse(show.startTime))
+    ? Date.parse(show.startTime) <= Date.now()
+    : false;
+  const isSoldOut =
+    !isEnded &&
+    !isAvailabilityPending &&
+    !isAvailabilityError &&
+    Boolean(availability) &&
+    (availability?.seats.length ?? 0) === 0;
+  const isSelectable = !isEnded && !isSoldOut;
+  const cardStatusLabel = isEnded ? 'Ended' : isSoldOut ? 'Sold out' : null;
+  const ctaLabel = isEnded ? 'Event ended' : isSoldOut ? 'Sold out' : 'Get tickets';
 
   const hue = hueFromId(show.id);
   const catalogSeatTotal = show.seats?.length ?? 0;
-  const availableCount = isSuccess && availability ? availability.seats.length : null;
+  const availableCount = availability ? availability.seats.length : null;
   const imageUrl = getShowCardImageUrl(show);
   const categoryLabel = getEventCategoryLabel(show.category);
   const [imgFailed, setImgFailed] = useState(false);
@@ -36,8 +56,18 @@ export function ShowCard({ show }: ShowCardProps) {
   return (
     <li className="h-full [contain:layout]">
       <Link
-        to={`/shows/${show.id}`}
-        className="group/card relative flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_2px_24px_-8px_rgba(15,23,42,0.09),0_0_0_1px_rgba(15,23,42,0.04)] outline-none ring-1 ring-slate-200/70 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-1.5 hover:shadow-[0_18px_36px_-10px_rgba(109,40,217,0.18),0_0_0_1px_rgba(139,92,246,0.1)] hover:ring-violet-200/90 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 sm:rounded-[1.2rem]"
+        to={isSelectable ? `/shows/${show.id}` : '#'}
+        aria-disabled={!isSelectable}
+        onClick={(event) => {
+          if (!isSelectable) {
+            event.preventDefault();
+          }
+        }}
+        className={`group/card relative flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-[0_2px_24px_-8px_rgba(15,23,42,0.09),0_0_0_1px_rgba(15,23,42,0.04)] outline-none ring-1 ring-slate-200/70 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] sm:rounded-[1.2rem] ${
+          isSelectable
+            ? 'hover:-translate-y-1.5 hover:shadow-[0_18px_36px_-10px_rgba(109,40,217,0.18),0_0_0_1px_rgba(139,92,246,0.1)] hover:ring-violet-200/90 focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50'
+            : 'cursor-not-allowed saturate-[0.7] grayscale-[0.2] opacity-80'
+        }`}
       >
         {/* Accent bar — appears on hover */}
         <span
@@ -95,40 +125,44 @@ export function ShowCard({ show }: ShowCardProps) {
           {/* Badge row */}
           <div className="absolute bottom-0 left-0 right-0 z-10 bg-gradient-to-t from-black/50 to-transparent px-2.5 pb-2 pt-8 sm:px-3 sm:pb-2.5 sm:pt-10">
             <div className="flex flex-wrap items-end justify-between gap-1.5 sm:flex-nowrap sm:gap-2">
-              <span
+              <PillBadge
                 className={`${badgeGlass} shrink-0 border-white/25 bg-white/15 uppercase tracking-[0.08em] text-white shadow-black/20 sm:tracking-[0.06em]`}
               >
                 {categoryLabel}
-              </span>
+              </PillBadge>
 
               <span className="order-last flex min-w-0 flex-[1_1_8rem] justify-center sm:order-none">
-                {isPending ? (
-                  <span
+                {isAvailabilityPending ? (
+                  <PillBadge
                     className={`${badgeGlass} border-white/20 bg-slate-950/55 text-white/95`}
                   >
                     From …
-                  </span>
-                ) : isError ? (
-                  <span className={`${badgeGlass} border-white/15 bg-slate-950/50 text-white/60`}>—</span>
-                ) : startingOffer ? (
-                  <span
+                  </PillBadge>
+                ) : isAvailabilityError ? (
+                  <PillBadge className={`${badgeGlass} border-white/15 bg-slate-950/50 text-white/60`}>—</PillBadge>
+                ) : startingOffer && !isEnded ? (
+                  <PillBadge
                     className={`${badgeGlass} border-emerald-400/35 bg-emerald-950/55 text-emerald-50 shadow-emerald-950/40`}
                   >
                     <span className="text-[9px] font-medium text-emerald-200/90 sm:text-[10px]">From</span>
                     <span className="tabular-nums text-[10px] sm:text-[11px]">
                       {formatPrice(startingOffer.price, startingOffer.currency)}
                     </span>
-                  </span>
+                  </PillBadge>
                 ) : (
-                  <span
-                    className={`${badgeGlass} border-rose-400/40 bg-rose-950/70 text-[10px] text-rose-50 shadow-rose-950/50 sm:text-[11px]`}
+                  <PillBadge
+                    className={`${badgeGlass} ${
+                      isEnded
+                        ? 'border-slate-300/40 bg-slate-900/65 text-[10px] text-slate-100 shadow-slate-950/40 sm:text-[11px]'
+                        : 'border-rose-400/40 bg-rose-950/70 text-[10px] text-rose-50 shadow-rose-950/50 sm:text-[11px]'
+                    }`}
                   >
-                    Sold out
-                  </span>
+                    {cardStatusLabel ?? 'Sold out'}
+                  </PillBadge>
                 )}
               </span>
 
-              <span
+              <PillBadge
                 className={`${badgeGlass} shrink-0 border-cyan-300/25 bg-slate-950/60 text-cyan-50 tabular-nums`}
                 title={
                   availableCount !== null
@@ -138,26 +172,26 @@ export function ShowCard({ show }: ShowCardProps) {
                       : undefined
                 }
               >
-                {isPending ? (
+                {isAvailabilityPending ? (
                   <span className="text-white/75">…</span>
-                ) : isError ? (
+                ) : isAvailabilityError ? (
                   '—'
                 ) : availableCount !== null ? (
                   <>
-                    <TicketGlyph className="h-2.5 w-2.5 shrink-0 opacity-90 sm:h-3 sm:w-3" />
+                    <TicketIcon className="h-2.5 w-2.5 shrink-0 opacity-90 sm:h-3 sm:w-3" />
                     <span>
                       {availableCount} {availableCount === 1 ? 'seat' : 'seats'}
                     </span>
                   </>
                 ) : (
                   <>
-                    <TicketGlyph className="h-2.5 w-2.5 shrink-0 opacity-90 sm:h-3 sm:w-3" />
+                    <TicketIcon className="h-2.5 w-2.5 shrink-0 opacity-90 sm:h-3 sm:w-3" />
                     <span>
                       {catalogSeatTotal} {catalogSeatTotal === 1 ? 'seat' : 'seats'}
                     </span>
                   </>
                 )}
-              </span>
+              </PillBadge>
             </div>
           </div>
         </div>
@@ -185,7 +219,7 @@ export function ShowCard({ show }: ShowCardProps) {
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500/10 to-fuchsia-500/10 text-violet-600 ring-1 ring-violet-500/10 sm:h-9 sm:w-9 sm:rounded-xl"
                 aria-hidden
               >
-                <CalendarIcon />
+                <CalendarIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </span>
               <div className="min-w-0 pt-px">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 sm:text-[10px] sm:tracking-[0.14em]">
@@ -202,7 +236,7 @@ export function ShowCard({ show }: ShowCardProps) {
                 className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-slate-100 to-slate-50 text-slate-600 ring-1 ring-slate-200/80 sm:h-9 sm:w-9 sm:rounded-xl"
                 aria-hidden
               >
-                <MapPinIcon />
+                <MapPinIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </span>
               <div className="min-w-0 space-y-px pt-px">
                 <p className="text-[9px] font-semibold uppercase tracking-[0.12em] text-slate-400 sm:text-[10px] sm:tracking-[0.14em]">
@@ -222,63 +256,28 @@ export function ShowCard({ show }: ShowCardProps) {
           </div>
 
           <div className="relative mt-3 flex items-center justify-between gap-2 border-t border-slate-100/90 pt-3 sm:mt-3.5 sm:pt-3.5">
-            <span className="text-xs font-semibold text-violet-600 opacity-0 transition duration-300 group-hover/card:translate-x-0.5 group-hover/card:opacity-100 sm:text-sm">
-              Get tickets
+            <span
+              className={`text-xs font-semibold transition duration-300 sm:text-sm ${
+                isSelectable
+                  ? 'text-violet-600 opacity-0 group-hover/card:translate-x-0.5 group-hover/card:opacity-100'
+                  : 'text-slate-500 opacity-100'
+              }`}
+            >
+              {ctaLabel}
             </span>
             <span
-              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 via-violet-600 to-fuchsia-600 text-white shadow-md shadow-violet-500/25 ring-1 ring-white/20 transition duration-300 group-hover/card:scale-105 group-hover/card:shadow-lg group-hover/card:shadow-violet-500/30 sm:h-10 sm:w-10 sm:rounded-2xl"
+              className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-white ring-1 transition duration-300 sm:h-10 sm:w-10 sm:rounded-2xl ${
+                isSelectable
+                  ? 'bg-gradient-to-br from-violet-600 via-violet-600 to-fuchsia-600 shadow-md shadow-violet-500/25 ring-white/20 group-hover/card:scale-105 group-hover/card:shadow-lg group-hover/card:shadow-violet-500/30'
+                  : 'bg-slate-400 shadow-sm shadow-slate-300/70 ring-slate-200'
+              }`}
               aria-hidden
             >
-              <ArrowIcon />
+              <ArrowRightIcon className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" />
             </span>
           </div>
         </div>
       </Link>
     </li>
-  );
-}
-
-function TicketGlyph({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M15 5v2a2 2 0 01-2 2h-2a2 2 0 00-2 2v2a2 2 0 01-2 2H5m14-9a2 2 0 11-4 0m4 0a2 2 0 10-4 0m4 0v9a2 2 0 01-2 2H7a2 2 0 01-2-2V9a2 2 0 012-2h10z"
-      />
-    </svg>
-  );
-}
-
-function MapPinIcon() {
-  return (
-    <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M12 21s-7-4.5-7-11a7 7 0 1114 0c0 6.5-7 11-7 11z"
-      />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 10a2 2 0 100-4 2 2 0 000 4z" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-      />
-    </svg>
-  );
-}
-
-function ArrowIcon() {
-  return (
-    <svg className="h-4 w-4 sm:h-[1.125rem] sm:w-[1.125rem]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
-    </svg>
   );
 }

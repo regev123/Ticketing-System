@@ -1,6 +1,7 @@
 package com.ticketing.order.dto;
 
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
@@ -26,13 +27,17 @@ public class CreateOrderRequest {
     @NotEmpty(message = "seatIds cannot be empty")
     private Set<String> seatIds;
 
-    @NotNull(message = "userId is required")
-    private String userId;
-
     @NotNull(message = "amount is required")
     @Positive(message = "amount must be positive")
     private BigDecimal amount;
 
     @NotNull(message = "currency is required")
     private String currency;
+
+    @Email(message = "userEmail must be a valid email")
+    private String userEmail;
+
+    private String showTitle;
+    private String venueName;
+    private String startTime;
 }

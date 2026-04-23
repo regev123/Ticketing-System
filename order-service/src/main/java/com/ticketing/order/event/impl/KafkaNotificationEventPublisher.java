@@ -18,6 +18,16 @@ public class KafkaNotificationEventPublisher implements NotificationEventPublish
 
     @Override
     public void publish(NotificationRequestedEvent event) {
-        kafkaTemplate.send(TopicNames.NOTIFICATION_EVENTS, event);
+        kafkaTemplate.send(TopicNames.NOTIFICATION_EVENTS, resolveMessageKey(event), event);
+    }
+
+    private String resolveMessageKey(NotificationRequestedEvent event) {
+        if (event.getOrderId() != null && !event.getOrderId().isBlank()) {
+            return event.getOrderId();
+        }
+        if (event.getUserId() != null && !event.getUserId().isBlank()) {
+            return event.getUserId();
+        }
+        return event.getId();
     }
 }

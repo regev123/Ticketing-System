@@ -19,12 +19,20 @@ public class OrderMapper implements ToEntityMapper<CreateOrderRequest, Order>, T
 
     @Override
     public Order toEntity(CreateOrderRequest source) {
+        return toEntity(source, null);
+    }
+
+    public Order toEntity(CreateOrderRequest source, String userId) {
         Order order = new Order();
         order.setId(java.util.UUID.randomUUID().toString());
         order.setHoldId(source.getHoldId());
         order.setShowId(source.getShowId());
         order.setSeatIds(source.getSeatIds());
-        order.setUserId(source.getUserId());
+        order.setUserId(userId);
+        order.setUserEmail(source.getUserEmail());
+        order.setShowTitle(source.getShowTitle());
+        order.setVenueName(source.getVenueName());
+        order.setStartTime(source.getStartTime());
         order.setAmount(source.getAmount());
         order.setCurrency(source.getCurrency());
         order.setStatus(OrderStatus.PAYMENT_PENDING);
@@ -40,6 +48,10 @@ public class OrderMapper implements ToEntityMapper<CreateOrderRequest, Order>, T
                 .showId(entity.getShowId())
                 .seatIds(entity.getSeatIds())
                 .userId(entity.getUserId())
+                .userEmail(entity.getUserEmail())
+                .showTitle(entity.getShowTitle())
+                .venueName(entity.getVenueName())
+                .startTime(entity.getStartTime())
                 .amount(entity.getAmount())
                 .currency(entity.getCurrency())
                 .status(entity.getStatus())

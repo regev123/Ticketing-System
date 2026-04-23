@@ -19,11 +19,18 @@ public class KafkaPaymentEventPublisher implements PaymentEventPublisher {
 
     @Override
     public void publishSucceeded(PaymentSucceededEvent event) {
-        kafkaTemplate.send(TopicNames.PAYMENT_EVENTS, event);
+        kafkaTemplate.send(TopicNames.PAYMENT_EVENTS, resolveMessageKey(event.getOrderId()), event);
     }
 
     @Override
     public void publishFailed(PaymentFailedEvent event) {
-        kafkaTemplate.send(TopicNames.PAYMENT_EVENTS, event);
+        kafkaTemplate.send(TopicNames.PAYMENT_EVENTS, resolveMessageKey(event.getOrderId()), event);
+    }
+
+    private static String resolveMessageKey(String orderId) {
+        if (orderId != null && !orderId.isBlank()) {
+            return orderId;
+        }
+        return java.util.UUID.randomUUID().toString();
     }
 }

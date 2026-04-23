@@ -1,0 +1,36 @@
+spring:
+  config:
+    import: optional:classpath:application-common.yml
+  application:
+    name: auth-service
+  data:
+    mongodb:
+      host: ${MONGODB_HOST:localhost}
+      port: ${MONGODB_PORT:27017}
+      database: ticketing_auth
+
+server:
+  port: 8087
+
+auth:
+  jwt:
+    secret: ${JWT_SECRET:dev-secret-change-this-key-dev-secret-change-this-key}
+    ttl-seconds: ${JWT_TTL_SECONDS:86400}
+  verification:
+    token-ttl-seconds: ${AUTH_VERIFICATION_TOKEN_TTL_SECONDS:86400}
+  email:
+    enabled: ${AUTH_EMAIL_ENABLED:false}
+  seed:
+    default-admin:
+      enabled: ${AUTH_SEED_DEFAULT_ADMIN_ENABLED:true}
+      email: ${AUTH_SEED_DEFAULT_ADMIN_EMAIL:admin@ticketing.local}
+      password: ${AUTH_SEED_DEFAULT_ADMIN_PASSWORD:Admin123!}
+      first-name: ${AUTH_SEED_DEFAULT_ADMIN_FIRST_NAME:Default}
+      last-name: ${AUTH_SEED_DEFAULT_ADMIN_LAST_NAME:Admin}
+    default-scanner:
+      enabled: ${AUTH_SEED_DEFAULT_SCANNER_ENABLED:true}
+      email: ${AUTH_SEED_DEFAULT_SCANNER_EMAIL:scanner@ticketing.local}
+      password: ${AUTH_SEED_DEFAULT_SCANNER_PASSWORD:Scanner123!}
+      first-name: ${AUTH_SEED_DEFAULT_SCANNER_FIRST_NAME:Default}
+      last-name: ${AUTH_SEED_DEFAULT_SCANNER_LAST_NAME:Scanner}
+      cleanup-interval-ms: ${AUTH_SEED_DEFAULT_SCANNER_CLEANUP_INTERVAL_MS:3600000}

@@ -6,6 +6,7 @@ import { forwardRef, useMemo, type ComponentPropsWithoutRef } from 'react';
 import DatePicker from 'react-datepicker';
 import { dateToLocalDatetimeString, parseLocalDatetimeString } from '@/utils';
 import { FORM_INPUT } from './formStyles';
+import { FormFieldLabel } from './FormFieldLabel';
 import 'react-datepicker/dist/react-datepicker.css';
 import './datepicker-theme.css';
 
@@ -66,17 +67,9 @@ export function ModernDateTimeField({
       role="group"
       aria-labelledby={`${id}-heading`}
     >
-      <p
-        id={`${id}-heading`}
-        className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500"
-      >
-        <span>{heading ?? 'Start date & time'}</span>
-        {required ? (
-          <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold tracking-wide text-violet-700 ring-1 ring-violet-100">
-            Required
-          </span>
-        ) : null}
-      </p>
+      <FormFieldLabel id={`${id}-heading`} required={required}>
+        {heading ?? 'Start date & time'}
+      </FormFieldLabel>
 
       <DatePicker
         id={id}

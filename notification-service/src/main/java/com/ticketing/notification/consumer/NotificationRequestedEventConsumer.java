@@ -27,7 +27,7 @@ public class NotificationRequestedEventConsumer {
     private final NotificationHandler notificationHandler;
 
     @KafkaListener(topics = TopicNames.NOTIFICATION_EVENTS, groupId = "${spring.kafka.consumer.group-id}")
-    public void consume(String message, @Header(KafkaHeaders.RECEIVED_KEY) String key) {
+    public void consume(String message, @Header(value = KafkaHeaders.RECEIVED_KEY, required = false) String key) {
         JsonTypedEventDispatcher.dispatch(message, key, objectMapper,
                 Map.of(TYPE_NOTIFICATION_REQUESTED, JsonTypedEventDispatcher.handler(NotificationRequestedEvent.class, notificationHandler::handle)),
                 "notification");

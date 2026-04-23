@@ -117,6 +117,31 @@ services:
     environment:
       MONGODB_HOST: mongodb
       MONGODB_PORT: 27017
+      JWT_SECRET: dev-secret-change-this-key-dev-secret-change-this-key
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_MODULE: auth-service
+    container_name: ticketing-auth
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8087:8087"
+    environment:
+      MONGODB_HOST: mongodb
+      MONGODB_PORT: 27017
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      JWT_SECRET: dev-secret-change-this-key-dev-secret-change-this-key
+      AUTH_EMAIL_ENABLED: "true"
+      AUTH_SEED_DEFAULT_SCANNER_ENABLED: ${AUTH_SEED_DEFAULT_SCANNER_ENABLED:-true}
+      AUTH_SEED_DEFAULT_SCANNER_EMAIL: ${AUTH_SEED_DEFAULT_SCANNER_EMAIL:-scanner@ticketing.local}
+      AUTH_SEED_DEFAULT_SCANNER_PASSWORD: ${AUTH_SEED_DEFAULT_SCANNER_PASSWORD:-Scanner123!}
 
   availability-service:
     build:
@@ -142,6 +167,7 @@ services:
       CATALOG_SERVICE_URL: http://catalog-service:8081
       RESERVATION_SERVICE_URL: http://reservation-service:8083
       ORDER_SERVICE_URL: http://order-service:8084
+      JWT_SECRET: dev-secret-change-this-key-dev-secret-change-this-key
 
   reservation-service:
     build:
@@ -162,6 +188,7 @@ services:
       REDIS_PORT: 6379
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       AVAILABILITY_SERVICE_URL: http://availability-service:8082
+      JWT_SECRET: dev-secret-change-this-key-dev-secret-change-this-key
 
   order-service:
     build:
@@ -191,6 +218,12 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       RESERVATION_SERVICE_URL: http://reservation-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8085
+      ORDER_CANCELLATION_ENABLED: ${ORDER_CANCELLATION_ENABLED:-true}
+      ORDER_CANCELLATION_CUTOFF_HOURS: ${ORDER_CANCELLATION_CUTOFF_HOURS:-24}
+      ORDER_CANCELLATION_REFUND_PERCENT_BEFORE_CUTOFF: ${ORDER_CANCELLATION_REFUND_PERCENT_BEFORE_CUTOFF:-100}
+      ORDER_CANCELLATION_REFUND_PERCENT_AFTER_CUTOFF: ${ORDER_CANCELLATION_REFUND_PERCENT_AFTER_CUTOFF:-0}
+      JWT_SECRET: dev-secret-change-this-key-dev-secret-change-this-key
 
   payment-service:
     build:
@@ -221,6 +254,16 @@ services:
       - "8085:8085"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      NOTIFICATION_EMAIL_ENABLED: ${NOTIFICATION_EMAIL_ENABLED:-true}
+      NOTIFICATION_EMAIL_FROM: ${NOTIFICATION_EMAIL_FROM:-regevregev8@gmail.com}
+      NOTIFICATION_EMAIL_VERIFY_URL_BASE: ${NOTIFICATION_EMAIL_VERIFY_URL_BASE:-http://localhost:3000/verify-email}
+      MAIL_HOST: ${MAIL_HOST:-smtp-relay.brevo.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-a7b26f001@smtp-brevo.com}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-qtbj6PR0m4WGhKzZ}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH:-true}
+      MAIL_SMTP_STARTTLS_ENABLE: ${MAIL_SMTP_STARTTLS_ENABLE:-true}
+      TICKET_QR_CHECKIN_URL_BASE: ${TICKET_QR_CHECKIN_URL_BASE:-http://localhost:3000/check-in}
 
   api-gateway:
     build:
@@ -230,6 +273,8 @@ services:
         BUILD_MODULE: api-gateway
     container_name: ticketing-gateway
     depends_on:
+      auth-service:
+        condition: service_started
       catalog-service:
         condition: service_started
       availability-service:
@@ -245,6 +290,7 @@ services:
       AVAILABILITY_SERVICE_URL: http://availability-service:8082
       RESERVATION_SERVICE_URL: http://reservation-service:8083
       ORDER_SERVICE_URL: http://order-service:8084
+      AUTH_SERVICE_URL: http://auth-service:8087
 
 volumes:
   postgres_data:

@@ -21,9 +21,8 @@ public class OrderSeatHoldVerifier {
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
 
-    public void verifyBeforeOrder(CreateOrderRequest request) {
+    public void verifyBeforeOrder(CreateOrderRequest request, String userId) {
         String showId = request.getShowId();
-        String userId = request.getUserId();
         for (String seatId : request.getSeatIds()) {
             String key = SEAT_PREFIX + showId + ":" + seatId;
             String v = redisTemplate.opsForValue().get(key);

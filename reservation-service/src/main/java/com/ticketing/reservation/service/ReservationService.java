@@ -8,6 +8,7 @@ import com.ticketing.reservation.dto.ExtendHoldRequest;
 import com.ticketing.reservation.dto.ExtendHoldResponse;
 import com.ticketing.reservation.dto.HoldResponse;
 
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -18,11 +19,11 @@ public interface ReservationService {
 
     HoldResponse createHold(String showId, Set<String> seatIds, String userId);
 
-    BatchHoldResponse batchHold(BatchHoldRequest request);
+    BatchHoldResponse batchHold(BatchHoldRequest request, String userId);
 
-    BatchReleaseResponse batchRelease(BatchReleaseRequest request);
+    BatchReleaseResponse batchRelease(BatchReleaseRequest request, String userId);
 
-    ExtendHoldResponse extendHold(ExtendHoldRequest request);
+    ExtendHoldResponse extendHold(ExtendHoldRequest request, String userId);
 
     void releaseHold(String holdId);
 
@@ -30,4 +31,9 @@ public interface ReservationService {
      * Seat IDs currently on hold (Redis locks) for this show.
      */
     Set<String> getLockedSeatIdsForShow(String showId);
+
+    /**
+     * Active hold for this user and show (Redis index + hold payload), if still valid.
+     */
+    Optional<HoldResponse> getMyActiveHoldForShow(String showId, String userId);
 }

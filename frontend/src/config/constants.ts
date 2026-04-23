@@ -2,9 +2,6 @@
  * App-wide constants. Single place for magic numbers and demo/config values.
  */
 
-/** Default user ID for demo holds/orders (no auth yet). */
-export const DEMO_USER_ID = 'frontend-user';
-
 /** Query client: how long data is considered fresh (ms). */
 export const QUERY_STALE_TIME_MS = 60 * 1000;
 
@@ -37,3 +34,6 @@ export const CREATE_SHOW_DEFAULT_DURATION_MINUTES = 180;
 
 /** Doors-open offset before start (minutes). */
 export const CREATE_SHOW_DEFAULT_DOORS_OPEN_OFFSET_MINUTES = 60;
+
+/** Business policy: cancellation closes this many hours before event start. */
+export const ORDER_CANCELLATION_CUTOFF_HOURS = 24;

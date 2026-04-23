@@ -1,6 +1,7 @@
 package com.ticketing.catalog.service.impl;
 
 import com.ticketing.catalog.dto.CreateShowRequest;
+import com.ticketing.catalog.dto.UpdateShowRequest;
 import com.ticketing.catalog.entity.Show;
 import com.ticketing.catalog.repository.ShowRepository;
 import com.ticketing.catalog.service.ShowService;
@@ -56,6 +57,35 @@ public class ShowServiceImpl implements ShowService {
         show.setSeats(buildSeats(request.sections()));
         String cover = request.coverImageUrl();
         show.setCoverImageUrl(cover != null && !cover.isBlank() ? cover.trim() : null);
+        return repository.save(show);
+    }
+
+    @Override
+    public Show update(String id, UpdateShowRequest request) {
+        Show show = repository.findById(id)
+                .orElseThrow(() -> ResourceNotFoundException.forResource("Show", id));
+
+        show.setTitle(request.title().trim());
+        show.setCategory(request.category().trim());
+        String description = request.description();
+        show.setDescription(description != null && !description.isBlank() ? description.trim() : null);
+
+        var v = request.venue();
+        show.setVenue(new Show.Venue(
+                v.venueName(),
+                v.city(),
+                v.country(),
+                v.address(),
+                new Show.Geo(v.geo().lat(), v.geo().lng())
+        ));
+
+        show.setDoorsOpenTime(Instant.parse(request.doorsOpenTime()));
+        show.setStartTime(Instant.parse(request.startTime()));
+        show.setEndTime(Instant.parse(request.endTime()));
+
+        String cover = request.coverImageUrl();
+        show.setCoverImageUrl(cover != null && !cover.isBlank() ? cover.trim() : null);
+
         return repository.save(show);
     }
 

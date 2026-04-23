@@ -30,6 +30,8 @@ spec:
               value: "http://reservation-service:8083"
             - name: ORDER_SERVICE_URL
               value: "http://order-service:8084"
+            - name: AUTH_SERVICE_URL
+              value: "http://auth-service:8087"
           resources:
             requests:
               memory: "256Mi"

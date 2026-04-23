@@ -30,3 +30,12 @@ server:
 reservation:
   service:
     url: ${RESERVATION_SERVICE_URL:http://localhost:8083}
+notification:
+  service:
+    url: ${NOTIFICATION_SERVICE_URL:http://localhost:8085}
+order:
+  cancellation:
+    enabled: ${ORDER_CANCELLATION_ENABLED:true}
+    cutoff-hours: ${ORDER_CANCELLATION_CUTOFF_HOURS:24}
+    refund-percent-before-cutoff: ${ORDER_CANCELLATION_REFUND_PERCENT_BEFORE_CUTOFF:100}
+    refund-percent-after-cutoff: ${ORDER_CANCELLATION_REFUND_PERCENT_AFTER_CUTOFF:0}

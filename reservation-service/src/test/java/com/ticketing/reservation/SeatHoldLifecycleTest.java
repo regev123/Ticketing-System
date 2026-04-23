@@ -121,11 +121,10 @@ class SeatHoldLifecycleTest {
 
         BatchHoldRequest req = BatchHoldRequest.builder()
                 .showId(SHOW_ID)
-                .userId(USER_2)
                 .seats(List.of(SEAT_A1, SEAT_A2))
                 .build();
 
-        BatchHoldResponse resp = reservationService.batchHold(req);
+        BatchHoldResponse resp = reservationService.batchHold(req, USER_2);
 
         assertThat(resp.getSuccess()).containsExactlyInAnyOrder(SEAT_A2);
         assertThat(resp.getFailed()).containsExactlyInAnyOrder(SEAT_A1);
@@ -152,11 +151,10 @@ class SeatHoldLifecycleTest {
         ExtendHoldRequest req = ExtendHoldRequest.builder()
                 .holdId(holdIdUser1)
                 .showId(SHOW_ID)
-                .userId(USER_1)
                 .seats(List.of(SEAT_A2)) // user1 tries to extend a seat owned by user2
                 .build();
 
-        ExtendHoldResponse resp = reservationService.extendHold(req);
+        ExtendHoldResponse resp = reservationService.extendHold(req, USER_1);
         assertThat(resp.getExtended()).isEqualTo(0);
 
         // Ownership didn't change; user2 still owns seat-A2.
@@ -183,11 +181,10 @@ class SeatHoldLifecycleTest {
         BatchReleaseRequest partialReq = BatchReleaseRequest.builder()
                 .holdId(holdId)
                 .showId(SHOW_ID)
-                .userId(USER_1)
                 .seats(List.of(SEAT_A1))
                 .build();
 
-        BatchReleaseResponse partialResp = reservationService.batchRelease(partialReq);
+        BatchReleaseResponse partialResp = reservationService.batchRelease(partialReq, USER_1);
         assertThat(partialResp.getReleased()).containsExactlyInAnyOrder(SEAT_A1);
 
         assertThat(reservationService.getLockedSeatIdsForShow(SHOW_ID)).containsExactlyInAnyOrder(SEAT_A2);
@@ -197,11 +194,10 @@ class SeatHoldLifecycleTest {
         BatchReleaseRequest fullReq = BatchReleaseRequest.builder()
                 .holdId(holdId)
                 .showId(SHOW_ID)
-                .userId(USER_1)
                 .seats(List.of(SEAT_A2))
                 .build();
 
-        BatchReleaseResponse fullResp = reservationService.batchRelease(fullReq);
+        BatchReleaseResponse fullResp = reservationService.batchRelease(fullReq, USER_1);
         assertThat(fullResp.getReleased()).containsExactlyInAnyOrder(SEAT_A2);
 
         assertThat(reservationService.getLockedSeatIdsForShow(SHOW_ID)).isEmpty();
@@ -217,11 +213,10 @@ class SeatHoldLifecycleTest {
         BatchReleaseRequest req = BatchReleaseRequest.builder()
                 .holdId(hold.getHoldId())
                 .showId(SHOW_ID)
-                .userId(USER_2)
                 .seats(List.of(SEAT_A1))
                 .build();
 
-        assertThatThrownBy(() -> reservationService.batchRelease(req))
+        assertThatThrownBy(() -> reservationService.batchRelease(req, USER_2))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("Invalid hold");
     }

@@ -21,6 +21,4 @@ public class CreateHoldRequest {
     @NotEmpty(message = "seatIds cannot be empty")
     private Set<String> seatIds;
 
-    @NotNull(message = "userId is required")
-    private String userId;
 }

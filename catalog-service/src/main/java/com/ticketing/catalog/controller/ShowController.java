@@ -2,7 +2,9 @@ package com.ticketing.catalog.controller;
 
 import com.ticketing.catalog.constant.ApiPaths;
 import com.ticketing.catalog.dto.CreateShowRequest;
+import com.ticketing.catalog.dto.UpdateShowRequest;
 import com.ticketing.catalog.entity.Show;
+import com.ticketing.common.auth.JwtAuthSupport;
 import com.ticketing.common.constant.HttpStatusCodes;
 import com.ticketing.catalog.service.ShowService;
 import com.ticketing.common.exception.ErrorResponse;
@@ -19,8 +21,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -38,6 +42,7 @@ import java.util.List;
 public class ShowController {
 
     private final ShowService showService;
+    private final JwtAuthSupport jwtAuthSupport;
 
     @GetMapping
     @Operation(summary = "List all shows", description = "Returns all available shows in the catalog")
@@ -65,7 +70,28 @@ public class ShowController {
     @ApiResponse(responseCode = HttpStatusCodes.CREATED_STR, description = "Show created")
     @ApiResponse(responseCode = HttpStatusCodes.BAD_REQUEST_STR, description = "Invalid request body",
             content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    public Show create(@RequestBody @Valid CreateShowRequest request) {
+    public Show create(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody @Valid CreateShowRequest request) {
+        jwtAuthSupport.requireAdmin(authorization);
         return showService.create(request);
+    }
+
+    @PutMapping(ApiPaths.SHOW_BY_ID)
+    @Operation(summary = "Update show", description = "Updates editable fields on an existing show (admin)")
+    @ApiResponses({
+            @ApiResponse(responseCode = HttpStatusCodes.OK_STR, description = "Show updated"),
+            @ApiResponse(responseCode = HttpStatusCodes.BAD_REQUEST_STR, description = "Invalid request body",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = HttpStatusCodes.NOT_FOUND_STR, description = "Show not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public Show update(
+            @Parameter(description = "Show ID", required = true, example = "507f1f77bcf86cd799439011")
+            @PathVariable String id,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestBody @Valid UpdateShowRequest request) {
+        jwtAuthSupport.requireAdmin(authorization);
+        return showService.update(id, request);
     }
 }

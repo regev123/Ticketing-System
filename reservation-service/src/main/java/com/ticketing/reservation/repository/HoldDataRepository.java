@@ -22,6 +22,9 @@ public interface HoldDataRepository {
 
     void save(HoldData holdData);
 
+    /** Saves hold payload with explicit TTL (ms). */
+    void saveWithTtl(HoldData holdData, long ttlMs);
+
     void saveHoldMeta(String holdId, String showId, Set<String> seatIds);
 
     HoldData findById(String holdId);
@@ -39,8 +42,8 @@ public interface HoldDataRepository {
     /** Deletes seat key only if value matches userId. */
     Set<String> releaseSeatsIfOwned(String showId, Set<String> seatIds, String userId);
 
-    /** Refreshes TTL to 420s for seats owned by user. */
-    int extendSeatsTtlIfOwned(String showId, Set<String> seatIds, String userId);
+    /** Refreshes seat TTL for seats owned by user. */
+    int extendSeatsTtlIfOwned(String showId, Set<String> seatIds, String userId, long ttlSeconds);
 
     /** Canonical holdId for (show, user), or null. */
     String getActiveHoldId(String showId, String userId);

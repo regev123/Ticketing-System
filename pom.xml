@@ -21,6 +21,7 @@
     <modules>
         <module>ticketing-events</module>
         <module>ticketing-common</module>
+        <module>auth-service</module>
         <module>catalog-service</module>
         <module>availability-service</module>
         <module>reservation-service</module>

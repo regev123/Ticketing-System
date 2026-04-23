@@ -3,8 +3,27 @@ spring:
     import: optional:classpath:application-common.yml
   application:
     name: notification-service
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: ${MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${MAIL_SMTP_STARTTLS_ENABLE:true}
   kafka:
     consumer:
       group-id: notification-service
+notification:
+  email:
+    enabled: ${NOTIFICATION_EMAIL_ENABLED:false}
+    from: ${NOTIFICATION_EMAIL_FROM:no-reply@ticketing.local}
+    verify-url-base: ${NOTIFICATION_EMAIL_VERIFY_URL_BASE:http://localhost:5173/verify-email}
+ticket:
+  qr:
+    check-in-url-base: ${TICKET_QR_CHECKIN_URL_BASE:http://localhost:3000/check-in}
 server:
   port: 8085

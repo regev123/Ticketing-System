@@ -32,6 +32,10 @@ public class Order {
     private Set<String> seatIds;
 
     private String userId;
+    private String userEmail;
+    private String showTitle;
+    private String venueName;
+    private String startTime;
     private BigDecimal amount;
     private String currency;
 

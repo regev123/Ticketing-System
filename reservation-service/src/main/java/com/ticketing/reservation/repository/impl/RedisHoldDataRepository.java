@@ -85,6 +85,13 @@ public class RedisHoldDataRepository implements HoldDataRepository {
     }
 
     @Override
+    public void saveWithTtl(HoldData holdData, long ttlMs) {
+        String holdKey = RedisKeys.holdKey(holdData.getHoldId());
+        redisTemplate.opsForValue().set(holdKey, toJson(holdData),
+                Duration.ofMillis(ttlMs));
+    }
+
+    @Override
     public void saveHoldMeta(String holdId, String showId, Set<String> seatIds) {
         String metaKey = RedisKeys.holdMetaKey(holdId);
         redisTemplate.opsForValue().set(metaKey, toHoldMetaJson(showId, seatIds),
@@ -169,9 +176,9 @@ public class RedisHoldDataRepository implements HoldDataRepository {
     }
 
     @Override
-    public int extendSeatsTtlIfOwned(String showId, Set<String> seatIds, String userId) {
+    public int extendSeatsTtlIfOwned(String showId, Set<String> seatIds, String userId, long ttlSeconds) {
         int n = 0;
-        Duration ttl = Duration.ofSeconds(RedisKeys.SEAT_HOLD_TTL_SECONDS);
+        Duration ttl = Duration.ofSeconds(ttlSeconds);
         for (String seatId : seatIds) {
             String key = RedisKeys.userSeatKey(showId, seatId);
             String v = redisTemplate.opsForValue().get(key);

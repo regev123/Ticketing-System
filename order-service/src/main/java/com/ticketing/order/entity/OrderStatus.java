@@ -6,5 +6,6 @@ package com.ticketing.order.entity;
 public enum OrderStatus {
     PAYMENT_PENDING,
     CONFIRMED,
+    PARTIALLY_CANCELLED,
     CANCELLED
 }

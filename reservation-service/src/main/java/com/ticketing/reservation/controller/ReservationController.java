@@ -2,6 +2,7 @@ package com.ticketing.reservation.controller;
 
 import com.ticketing.common.constant.HttpStatusCodes;
 import com.ticketing.common.exception.ErrorResponse;
+import com.ticketing.common.auth.JwtAuthSupport;
 import com.ticketing.reservation.constant.ApiPaths;
 import com.ticketing.reservation.dto.BatchHoldRequest;
 import com.ticketing.reservation.dto.BatchHoldResponse;
@@ -21,6 +22,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Set;
@@ -37,6 +39,7 @@ import java.util.Set;
 public class ReservationController {
 
     private final ReservationService reservationService;
+    private final JwtAuthSupport jwtAuthSupport;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -46,11 +49,14 @@ public class ReservationController {
             @ApiResponse(responseCode = HttpStatusCodes.CONFLICT_STR, description = "Seat already held",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    public HoldResponse createHold(@Valid @RequestBody CreateHoldRequest request) {
+    public HoldResponse createHold(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @Valid @RequestBody CreateHoldRequest request) {
+        String userId = jwtAuthSupport.requireAccessToken(authorization).userId();
         return reservationService.createHold(
                 request.getShowId(),
                 request.getSeatIds(),
-                request.getUserId()
+                userId
         );
     }
 
@@ -66,24 +72,44 @@ public class ReservationController {
         return reservationService.getLockedSeatIdsForShow(showId);
     }
 
+    @GetMapping(ApiPaths.SHOW_MY_HOLD)
+    @Operation(summary = "My active hold for show", description = "Returns the signed-in user's active hold for this show, or 204 if none")
+    public ResponseEntity<HoldResponse> getMyActiveHold(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @PathVariable("showId") String showId) {
+        String userId = jwtAuthSupport.requireAccessToken(authorization).userId();
+        return reservationService.getMyActiveHoldForShow(showId, userId)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
     @PostMapping(ApiPaths.BATCH_HOLD)
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Batch hold seats", description = "SET seat keys NX EX 420; partial success; optional holdId to merge")
-    public BatchHoldResponse batchHold(@Valid @RequestBody BatchHoldRequest request) {
-        return reservationService.batchHold(request);
+    public BatchHoldResponse batchHold(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @Valid @RequestBody BatchHoldRequest request) {
+        String userId = jwtAuthSupport.requireAccessToken(authorization).userId();
+        return reservationService.batchHold(request, userId);
     }
 
     @PostMapping(ApiPaths.BATCH_RELEASE)
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Batch release seats", description = "Only if held by this user")
-    public BatchReleaseResponse batchRelease(@Valid @RequestBody BatchReleaseRequest request) {
-        return reservationService.batchRelease(request);
+    public BatchReleaseResponse batchRelease(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @Valid @RequestBody BatchReleaseRequest request) {
+        String userId = jwtAuthSupport.requireAccessToken(authorization).userId();
+        return reservationService.batchRelease(request, userId);
     }
 
     @PostMapping(ApiPaths.EXTEND_HOLD)
     @ResponseStatus(HttpStatus.OK)
     @Operation(summary = "Extend hold TTL", description = "Refresh EX 420 for seats owned by user")
-    public ExtendHoldResponse extendHold(@Valid @RequestBody ExtendHoldRequest request) {
-        return reservationService.extendHold(request);
+    public ExtendHoldResponse extendHold(
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @Valid @RequestBody ExtendHoldRequest request) {
+        String userId = jwtAuthSupport.requireAccessToken(authorization).userId();
+        return reservationService.extendHold(request, userId);
     }
 }

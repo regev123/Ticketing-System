@@ -178,7 +178,7 @@ frontend/
 │   ├── data/                  # eventCategories, currencies, concertImages
 │   ├── hooks/                 # useShows, useShow, useAvailability, usePagination, useDebouncedSeatHold, …
 │   ├── lib/                   # nominatim.ts
-│   ├── pages/                 # HomePage, ShowDetailPage, CheckoutPage, AdminPage, CreateShowPage, createShow/*
+│   ├── pages/                 # HomePage, ShowDetailPage, CheckoutPage, AdminPage; createShow/ (CreateShowPage, constants, validation)
 │   ├── types/                 # api.ts
 │   ├── utils/                 # filters, format, seat pricing, datetime, image, …
 │   ├── App.tsx

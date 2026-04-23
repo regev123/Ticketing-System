@@ -17,7 +17,6 @@ export const reservationsApi = {
     client.post<HoldResponse>(RESERVATIONS, { ...body, seatIds: [...body.seatIds] }),
   batchHold: (body: {
     showId: string;
-    userId: string;
     seats: string[];
     holdId?: string;
   }) =>
@@ -30,6 +29,19 @@ export const reservationsApi = {
       ...body,
       seats: [...body.seats],
     }),
+  extendHold: (body: {
+    holdId: string;
+    showId: string;
+    seats: string[];
+    ttlSeconds?: number;
+  }) =>
+    client.post<{ extended: number }>(`${RESERVATIONS}/extend-hold`, {
+      ...body,
+      seats: [...body.seats],
+    }),
   releaseHold: (holdId: string) =>
     client.delete<void>(`${RESERVATIONS}/${holdId}`),
+  /** 200 + hold body, or 204 → `undefined` (no active hold). */
+  getMyActiveHold: (showId: string) =>
+    client.get<HoldResponse | undefined>(`${RESERVATIONS}/shows/${showId}/my-hold`),
 };

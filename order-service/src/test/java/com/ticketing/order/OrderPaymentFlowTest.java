@@ -118,11 +118,10 @@ class OrderPaymentFlowTest {
         request.setHoldId(holdId);
         request.setShowId("show-1");
         request.setSeatIds(Set.of(seatId));
-        request.setUserId(userId);
         request.setAmount(amount);
         request.setCurrency("USD");
 
-        OrderResponse created = orderService.createOrder(request);
+        OrderResponse created = orderService.createOrder(request, userId);
         assertThat(created.getId()).isNotBlank();
         assertThat(orderRepository.findById(created.getId()))
                 .isPresent()

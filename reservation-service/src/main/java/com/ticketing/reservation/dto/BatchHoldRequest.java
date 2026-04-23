@@ -18,9 +18,6 @@ public class BatchHoldRequest {
     @NotBlank
     private String showId;
 
-    @NotBlank
-    private String userId;
-
     @NotEmpty
     private List<String> seats;
 

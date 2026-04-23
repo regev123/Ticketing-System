@@ -23,6 +23,7 @@ import java.time.Instant;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -75,9 +76,8 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     @Override
-    public BatchHoldResponse batchHold(BatchHoldRequest request) {
+    public BatchHoldResponse batchHold(BatchHoldRequest request, String userId) {
         String showId = request.getShowId();
-        String userId = request.getUserId();
         Set<String> requested = new LinkedHashSet<>(request.getSeats());
         SeatBatchResult partial = holdDataRepository.tryAcquireSeatsPartial(showId, requested, userId);
         Set<String> ok = new LinkedHashSet<>(partial.success());
@@ -138,43 +138,47 @@ public class ReservationServiceImpl implements ReservationService {
     }
 
     @Override
-    public BatchReleaseResponse batchRelease(BatchReleaseRequest request) {
+    public BatchReleaseResponse batchRelease(BatchReleaseRequest request, String userId) {
         HoldData hold = holdDataRepository.findById(request.getHoldId());
-        if (hold == null || !hold.getUserId().equals(request.getUserId())) {
+        if (hold == null || !hold.getUserId().equals(userId)) {
             throw new BadRequestException("Invalid hold");
         }
         if (!hold.getShowId().equals(request.getShowId())) {
             throw new BadRequestException("Show mismatch");
         }
         Set<String> released = holdDataRepository.releaseSeatsIfOwned(
-                hold.getShowId(), new HashSet<>(request.getSeats()), request.getUserId());
+                hold.getShowId(), new HashSet<>(request.getSeats()), userId);
         Set<String> remaining = new LinkedHashSet<>(hold.getSeatIds());
         remaining.removeAll(released);
 
         if (remaining.isEmpty()) {
             removeHoldCompletely(request, hold);
         } else {
-            refreshHoldAfterPartialRelease(request, hold, remaining);
+            refreshHoldAfterPartialRelease(request, hold, remaining, userId);
         }
         availabilityCacheNotifier.notifyAvailabilityChanged(hold.getShowId());
         return new BatchReleaseResponse(List.copyOf(released));
     }
 
     @Override
-    public ExtendHoldResponse extendHold(ExtendHoldRequest request) {
+    public ExtendHoldResponse extendHold(ExtendHoldRequest request, String userId) {
         HoldData hold = holdDataRepository.findById(request.getHoldId());
-        if (hold == null || !hold.getUserId().equals(request.getUserId())) {
+        if (hold == null || !hold.getUserId().equals(userId)) {
             throw new BadRequestException("Invalid hold");
         }
         if (!hold.getShowId().equals(request.getShowId())) {
             throw new BadRequestException("Show mismatch");
         }
+        long ttlSeconds = request.getTtlSeconds() != null
+                ? request.getTtlSeconds()
+                : RedisKeys.SEAT_HOLD_TTL_SECONDS;
+        long holdTtlMs = ttlSeconds * 1000L;
         int n = holdDataRepository.extendSeatsTtlIfOwned(
-                hold.getShowId(), new HashSet<>(request.getSeats()), request.getUserId());
-        long expiresAt = Instant.now().plusMillis(RedisKeys.HOLD_TTL_MS).toEpochMilli();
+                hold.getShowId(), new HashSet<>(request.getSeats()), userId, ttlSeconds);
+        long expiresAt = Instant.now().plusMillis(holdTtlMs).toEpochMilli();
         HoldData updated = buildHoldData(hold.getHoldId(), hold.getShowId(),
                 hold.getSeatIds(), hold.getUserId(), expiresAt);
-        holdDataRepository.save(updated);
+        holdDataRepository.saveWithTtl(updated, holdTtlMs);
         holdDataRepository.setActiveHoldId(hold.getShowId(), hold.getUserId(), hold.getHoldId());
         availabilityCacheNotifier.notifyAvailabilityChanged(hold.getShowId());
         return new ExtendHoldResponse(n);
@@ -198,19 +202,37 @@ public class ReservationServiceImpl implements ReservationService {
         return holdDataRepository.findLockedSeatIdsForShow(showId);
     }
 
+    @Override
+    public Optional<HoldResponse> getMyActiveHoldForShow(String showId, String userId) {
+        String holdId = holdDataRepository.getActiveHoldId(showId, userId);
+        if (holdId == null || holdId.isBlank()) {
+            return Optional.empty();
+        }
+        HoldData hold = holdDataRepository.findById(holdId);
+        if (hold == null
+                || !userId.equals(hold.getUserId())
+                || !showId.equals(hold.getShowId())
+                || hold.getSeatIds() == null
+                || hold.getSeatIds().isEmpty()) {
+            holdDataRepository.deleteActiveHoldId(showId, userId);
+            return Optional.empty();
+        }
+        return Optional.of(holdMapper.toDto(hold));
+    }
+
     private void removeHoldCompletely(BatchReleaseRequest request, HoldData hold) {
         holdDataRepository.delete(request.getHoldId(), hold.getShowId(), hold.getSeatIds());
         holdDataRepository.deleteActiveHoldId(hold.getShowId(), hold.getUserId());
     }
 
     private void refreshHoldAfterPartialRelease(BatchReleaseRequest request, HoldData hold,
-                                                Set<String> remaining) {
+                                                Set<String> remaining, String userId) {
         long expiresAt = Instant.now().plusMillis(RedisKeys.HOLD_TTL_MS).toEpochMilli();
         HoldData updated = buildHoldData(request.getHoldId(), hold.getShowId(), remaining,
-                request.getUserId(), expiresAt);
+                userId, expiresAt);
         holdDataRepository.save(updated);
         holdDataRepository.saveHoldMeta(request.getHoldId(), hold.getShowId(), remaining);
-        holdDataRepository.setActiveHoldId(hold.getShowId(), hold.getUserId(), request.getHoldId());
+        holdDataRepository.setActiveHoldId(hold.getShowId(), userId, request.getHoldId());
     }
 
     private static HoldData buildHoldData(String holdId, String showId, Set<String> seatIds,

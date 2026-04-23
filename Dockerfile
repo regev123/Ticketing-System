@@ -8,6 +8,7 @@ WORKDIR /build
 COPY pom.xml .
 COPY ticketing-events ./ticketing-events
 COPY ticketing-common ./ticketing-common
+COPY auth-service ./auth-service
 COPY api-gateway ./api-gateway
 COPY catalog-service ./catalog-service
 COPY availability-service ./availability-service

@@ -11,8 +11,10 @@ export function useCreateOrder() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (body: CreateOrderRequest) => ordersApi.create(body),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.availabilityAll });
+      // Drop cached my-hold so returning to seat map does not re-hydrate a released hold.
+      queryClient.removeQueries({ queryKey: queryKeys.myActiveHold(variables.showId) });
     },
   });
 }

@@ -26,6 +26,8 @@ spec:
               value: "mongodb"
             - name: MONGODB_PORT
               value: "27017"
+            - name: JWT_SECRET
+              value: "dev-secret-change-this-key-dev-secret-change-this-key"
           resources:
             requests:
               memory: "256Mi"

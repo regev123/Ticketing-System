@@ -28,6 +28,8 @@ spec:
               value: "6379"
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "kafka:29092"
+            - name: JWT_SECRET
+              value: "dev-secret-change-this-key-dev-secret-change-this-key"
           resources:
             requests:
               memory: "256Mi"
